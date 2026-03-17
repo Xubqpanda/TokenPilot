@@ -1,0 +1,20 @@
+{
+    "name":  "ecoclaw",
+    "private":  true,
+    "version":  "0.1.0",
+    "description":  "EcoClaw: Resource-Efficient Execution for Language Model Agents",
+    "scripts":  {
+                    "build":  "pnpm -r build",
+                    "typecheck":  "pnpm -r typecheck",
+                    "dev:bench":  "pnpm --filter @ecoclaw/lab-bench dev"
+                },
+    "devDependencies":  {
+                            "typescript":  "^5.9.3",
+                            "tsx":  "^4.21.0",
+                            "@types/node":  "^24.3.0"
+                        },
+    "workspaces":  [
+                       "packages/*",
+                       "apps/*"
+                   ]
+}

@@ -1,0 +1,19 @@
+{
+    "name":  "@ecoclaw/lab-bench",
+    "version":  "0.1.0",
+    "private":  true,
+    "type":  "module",
+    "scripts":  {
+                    "dev":  "tsx src/index.ts",
+                    "typecheck":  "tsc -p tsconfig.json --noEmit",
+                    "build":  "tsc -p tsconfig.json"
+                },
+    "dependencies":  {
+                         "@ecoclaw/kernel":  "workspace:*",
+                         "@ecoclaw/module-cache":  "workspace:*",
+                         "@ecoclaw/module-summary":  "workspace:*",
+                         "@ecoclaw/module-compression":  "workspace:*",
+                         "@ecoclaw/provider-openai":  "workspace:*"
+                     }
+}
+
