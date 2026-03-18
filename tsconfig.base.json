@@ -24,8 +24,11 @@
                                           "@ecoclaw/module-compression":  [
                                                                           "packages/modules/compression/src/index.ts"
                                                                       ],
+                                          "@ecoclaw/module-retrieval":  [
+                                                                        "packages/modules/retrieval/src/index.ts"
+                                                                    ],
                                           "@ecoclaw/module-retrieval-qmd":  [
-                                                                            "packages/modules/retrieval-qmd/src/index.ts"
+                                                                            "packages/modules/retrieval/src/index.ts"
                                                                         ],
                                           "@ecoclaw/module-task-router":  [
                                                                           "packages/modules/task-router/src/index.ts"
@@ -54,5 +57,4 @@
                                       ]
                         }
 }
-
 

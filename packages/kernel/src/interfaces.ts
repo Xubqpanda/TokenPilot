@@ -13,6 +13,21 @@ export type RuntimeModule = {
   afterCall?(ctx: RuntimeTurnContext, result: RuntimeTurnResult): Promise<RuntimeTurnResult>;
 };
 
+export type ModuleScheduleDecision = {
+  modules: RuntimeModule[];
+  scheduleId: string;
+  reason?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type ModuleScheduler = {
+  name: string;
+  selectModules(
+    ctx: RuntimeTurnContext,
+    availableModules: RuntimeModule[],
+  ): Promise<ModuleScheduleDecision>;
+};
+
 export type ProviderAdapter = {
   provider: string;
   annotatePrompt(ctx: RuntimeTurnContext): Promise<RuntimeTurnContext>;

@@ -1,0 +1,54 @@
+{
+  "id": "ecoclaw",
+  "kind": "runtime",
+  "name": "EcoClaw Runtime Optimizer",
+  "version": "0.1.0",
+  "description": "Token-efficiency runtime plugin for OpenClaw with pluggable routing and optimization hooks.",
+  "author": "EcoClaw",
+  "homepage": "https://github.com/Xubqpanda/EcoClaw",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable EcoClaw plugin hooks."
+      },
+      "logLevel": {
+        "type": "string",
+        "enum": [
+          "info",
+          "debug"
+        ],
+        "default": "info",
+        "description": "Plugin log verbosity."
+      },
+      "proxyBaseUrl": {
+        "type": "string",
+        "description": "Optional OpenAI-compatible proxy base URL for routing (for example: http://127.0.0.1:8787/v1)."
+      },
+      "proxyApiKey": {
+        "type": "string",
+        "description": "Optional API key used with proxyBaseUrl.",
+        "sensitive": true
+      }
+    }
+  },
+  "uiHints": {
+    "enabled": {
+      "label": "Enabled"
+    },
+    "logLevel": {
+      "label": "Log Level"
+    },
+    "proxyBaseUrl": {
+      "label": "Proxy Base URL",
+      "placeholder": "http://127.0.0.1:8787/v1"
+    },
+    "proxyApiKey": {
+      "label": "Proxy API Key",
+      "sensitive": true
+    }
+  }
+}

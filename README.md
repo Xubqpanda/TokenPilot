@@ -24,3 +24,15 @@ This avoids coupling cache stability to evolving cross-session memory too early.
 - `packages/storage/fs`: filesystem-backed runtime state store
 - `packages/observability`: metrics sink primitives
 - `apps/lab-bench`: replay + A/B harness scaffold
+
+## OpenClaw Plugin (WIP)
+
+Target plug-and-play flow:
+
+```bash
+openclaw plugins install ecoclaw
+openclaw gateway restart
+```
+
+The plugin package lives at `packages/openclaw-plugin` and is designed to be
+published as npm package `ecoclaw`.

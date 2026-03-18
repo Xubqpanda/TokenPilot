@@ -1,0 +1,43 @@
+{
+  "name": "ecoclaw",
+  "version": "0.1.0",
+  "description": "EcoClaw plugin for OpenClaw: routing hooks and token-efficiency runtime controls.",
+  "main": "dist/index.js",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Xubqpanda/EcoClaw.git",
+    "directory": "packages/openclaw-plugin"
+  },
+  "files": [
+    "dist/index.js",
+    "dist/index.js.map",
+    "openclaw.plugin.json",
+    "README.md"
+  ],
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "tsx build.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.10",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "ecoclaw",
+    "llm-routing",
+    "token-efficiency"
+  ]
+}

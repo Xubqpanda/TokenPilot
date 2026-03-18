@@ -4,6 +4,7 @@ import {
   type RuntimeModule,
   type RuntimeStateStore,
   type RuntimeTurnContext,
+  type RuntimeTurnTrace,
   type RuntimeTurnResult,
 } from "@ecoclaw/kernel";
 import { createFileRuntimeStateStore } from "@ecoclaw/storage-fs";
@@ -20,6 +21,15 @@ export function createOpenClawConnector(cfg: OpenClawConnectorConfig) {
   const stateStore =
     cfg.stateStore ??
     (cfg.stateDir ? createFileRuntimeStateStore({ stateDir: cfg.stateDir }) : undefined);
+
+  const toSerializable = <T>(value: T): T | undefined => {
+    if (value === undefined) return undefined;
+    try {
+      return JSON.parse(JSON.stringify(value)) as T;
+    } catch {
+      return undefined;
+    }
+  };
 
   return {
     // Placeholder: wire these to OpenClaw plugin hooks.
@@ -40,6 +50,13 @@ export function createOpenClawConnector(cfg: OpenClawConnectorConfig) {
           segments: turnCtx.segments,
           usage: result.usage,
           responsePreview: result.content.slice(0, 800),
+          response: result.content,
+          trace: toSerializable<RuntimeTurnTrace | undefined>(
+            (result.metadata as Record<string, unknown> | undefined)?.ecoclawTrace as
+              | RuntimeTurnTrace
+              | undefined,
+          ),
+          resultMetadata: toSerializable(result.metadata),
           startedAt,
           endedAt,
           status: "ok",
@@ -55,6 +72,12 @@ export function createOpenClawConnector(cfg: OpenClawConnectorConfig) {
           prompt: turnCtx.prompt,
           segments: turnCtx.segments,
           responsePreview: "",
+          trace: toSerializable<RuntimeTurnTrace>({
+            initialContext: turnCtx,
+            finalContext: turnCtx,
+            moduleSteps: [],
+            responsePreview: "",
+          }),
           startedAt,
           endedAt,
           status: "error",
@@ -71,4 +94,3 @@ export function createOpenClawConnector(cfg: OpenClawConnectorConfig) {
     },
   };
 }
-

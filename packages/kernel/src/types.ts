@@ -19,7 +19,35 @@ export type UsageSnapshot = {
   cacheReadTokens?: number;
   cacheWriteTokens?: number;
   cachedTokens?: number;
+  cacheHitTokens?: number;
+  cacheHitRate?: number;
   providerRaw?: unknown;
+};
+
+export type RuntimeTurnTraceStep = {
+  stage: "beforeBuild" | "annotatePrompt" | "beforeCall" | "afterCall";
+  module: string;
+  promptChars: number;
+  segmentCount: number;
+  responseChars?: number;
+  timestamp: string;
+};
+
+export type RuntimeTurnTrace = {
+  initialContext: RuntimeTurnContext;
+  finalContext: RuntimeTurnContext;
+  moduleSteps: RuntimeTurnTraceStep[];
+  scheduling?: {
+    scheduler?: string;
+    scheduleId: string;
+    reason?: string;
+    metadata?: Record<string, unknown>;
+    availableModules: string[];
+    activeModules: string[];
+  };
+  usageRaw?: unknown;
+  usageNormalized?: UsageSnapshot;
+  responsePreview: string;
 };
 
 export type RuntimeTurnContext = {
@@ -48,6 +76,9 @@ export type PersistedTurnRecord = {
   segments: ContextSegment[];
   usage?: UsageSnapshot;
   responsePreview: string;
+  response?: string;
+  trace?: RuntimeTurnTrace;
+  resultMetadata?: Record<string, unknown>;
   startedAt: string;
   endedAt: string;
   status: "ok" | "error";

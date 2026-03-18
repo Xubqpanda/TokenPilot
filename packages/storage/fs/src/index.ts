@@ -31,7 +31,7 @@ export class FileRuntimeStateStore implements RuntimeStateStore {
     const sessionDir = this.getSessionDir(record.sessionId);
     const turnsPath = join(sessionDir, "turns.jsonl");
     await mkdir(sessionDir, { recursive: true });
-    await appendFile(turnsPath, `${JSON.stringify(record)}\n`, "utf8");
+    await appendFile(turnsPath, `${this.safeStringify(record)}\n`, "utf8");
     await this.upsertSessionMeta(record.sessionId, {
       updatedAt: record.endedAt,
       provider: record.provider,
@@ -99,7 +99,37 @@ export class FileRuntimeStateStore implements RuntimeStateStore {
 
   private async writeJson(filePath: string, value: unknown): Promise<void> {
     await mkdir(dirname(filePath), { recursive: true });
-    await writeFile(filePath, JSON.stringify(value, null, 2), "utf8");
+    await writeFile(filePath, this.safeStringify(value, 2), "utf8");
+  }
+
+  private safeStringify(value: unknown, space?: number): string {
+    const seen = new WeakSet<object>();
+    return JSON.stringify(
+      value,
+      (_key, currentValue: unknown) => {
+        if (typeof currentValue === "bigint") {
+          return currentValue.toString();
+        }
+        if (currentValue instanceof Error) {
+          return {
+            name: currentValue.name,
+            message: currentValue.message,
+            stack: currentValue.stack,
+          };
+        }
+        if (typeof currentValue === "function") {
+          return `[Function ${currentValue.name || "anonymous"}]`;
+        }
+        if (currentValue && typeof currentValue === "object") {
+          if (seen.has(currentValue as object)) {
+            return "[Circular]";
+          }
+          seen.add(currentValue as object);
+        }
+        return currentValue;
+      },
+      space,
+    );
   }
 }
 

@@ -1,6 +1,7 @@
 import { createCacheModule } from "@ecoclaw/module-cache";
 import { createSummaryModule } from "@ecoclaw/module-summary";
 import { createCompressionModule } from "@ecoclaw/module-compression";
+import { createTaskRouterModule } from "@ecoclaw/module-task-router";
 import { openaiAdapter } from "@ecoclaw/provider-openai";
 import { createOpenClawConnector } from "@ecoclaw/connector-openclaw";
 
@@ -8,6 +9,14 @@ async function main() {
   const connector = createOpenClawConnector({
     modules: [
       createCacheModule(),
+      createTaskRouterModule({
+        enabled: true,
+        tierRoutes: {
+          simple: { provider: "openai", model: "gpt-5-mini" },
+          complex: { provider: "openai", model: "gpt-5" },
+          reasoning: { provider: "openai", model: "o3" },
+        },
+      }),
       createSummaryModule({ idleTriggerMinutes: 50 }),
       createCompressionModule({ maxToolChars: 300 }),
     ],
@@ -50,4 +59,3 @@ main().catch((err) => {
   console.error(err);
   process.exitCode = 1;
 });
-
