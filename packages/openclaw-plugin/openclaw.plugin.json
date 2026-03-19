@@ -32,6 +32,61 @@
         "type": "string",
         "description": "Optional API key used with proxyBaseUrl.",
         "sensitive": true
+      },
+      "runtimeMode": {
+        "type": "string",
+        "enum": [
+          "off",
+          "shadow"
+        ],
+        "default": "shadow",
+        "description": "Plugin runtime mode. shadow = run EcoClaw pipeline side-by-side for tracing/fork simulation."
+      },
+      "stateDir": {
+        "type": "string",
+        "description": "Directory for EcoClaw runtime state and summaries (default: ~/.openclaw/ecoclaw-plugin-state)."
+      },
+      "eventTracePath": {
+        "type": "string",
+        "description": "JSONL output path for event trace export."
+      },
+      "autoForkOnPolicy": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable connector-level auto fork when policy emits fork recommendation."
+      },
+      "cacheTtlSeconds": {
+        "type": "number",
+        "default": 600,
+        "description": "CacheTree node TTL in seconds."
+      },
+      "summaryTriggerInputTokens": {
+        "type": "number",
+        "default": 20000,
+        "description": "Policy threshold (cumulative input tokens per session) for requesting summary."
+      },
+      "summaryTriggerStableChars": {
+        "type": "number",
+        "default": 0,
+        "description": "Optional policy threshold based on stable context chars (0 disables char-based trigger)."
+      },
+      "summaryRecentTurns": {
+        "type": "number",
+        "default": 8,
+        "description": "How many recent raw turns to include in summary payload."
+      },
+      "maxSummaryChars": {
+        "type": "number",
+        "default": 6000,
+        "description": "Maximum summary chars persisted into memory-state."
+      },
+      "compactionPrompt": {
+        "type": "string",
+        "description": "Prompt text for context checkpoint compaction style."
+      },
+      "resumePrefixPrompt": {
+        "type": "string",
+        "description": "Prefix prompt used when seeding a forked session from summary."
       }
     }
   },
@@ -49,6 +104,39 @@
     "proxyApiKey": {
       "label": "Proxy API Key",
       "sensitive": true
+    },
+    "runtimeMode": {
+      "label": "Runtime Mode"
+    },
+    "stateDir": {
+      "label": "State Directory"
+    },
+    "eventTracePath": {
+      "label": "Event Trace Path"
+    },
+    "autoForkOnPolicy": {
+      "label": "Auto Fork On Policy"
+    },
+    "cacheTtlSeconds": {
+      "label": "Cache TTL (s)"
+    },
+    "summaryTriggerInputTokens": {
+      "label": "Summary Trigger Input Tokens"
+    },
+    "summaryTriggerStableChars": {
+      "label": "Summary Trigger Stable Chars"
+    },
+    "summaryRecentTurns": {
+      "label": "Summary Recent Turns"
+    },
+    "maxSummaryChars": {
+      "label": "Max Summary Chars"
+    },
+    "compactionPrompt": {
+      "label": "Compaction Prompt"
+    },
+    "resumePrefixPrompt": {
+      "label": "Resume Prefix Prompt"
     }
   }
 }

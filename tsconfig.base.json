@@ -33,6 +33,12 @@
                                           "@ecoclaw/module-task-router":  [
                                                                           "packages/modules/task-router/src/index.ts"
                                                                       ],
+                                          "@ecoclaw/module-memory-state":  [
+                                                                            "packages/modules/memory-state/src/index.ts"
+                                                                        ],
+                                          "@ecoclaw/module-policy":  [
+                                                                      "packages/modules/policy/src/index.ts"
+                                                                      ],
                                           "@ecoclaw/provider-openai":  [
                                                                        "packages/providers/openai/src/index.ts"
                                                                    ],
@@ -57,4 +63,3 @@
                                       ]
                         }
 }
-
