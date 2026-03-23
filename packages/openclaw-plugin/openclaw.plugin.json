@@ -118,6 +118,36 @@
         "default": 7200,
         "description": "Probe hit freshness window for warm state."
       },
+      "compactionTriggerEnabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable static compaction trigger for openai-responses sessions."
+      },
+      "compactionTriggerInputTokens": {
+        "type": "number",
+        "default": 120000,
+        "description": "Compaction trigger threshold: cumulative input tokens."
+      },
+      "compactionTriggerTurnCount": {
+        "type": "number",
+        "default": 18,
+        "description": "Compaction trigger threshold: turn count."
+      },
+      "compactionTriggerMissRateThreshold": {
+        "type": "number",
+        "default": 0.7,
+        "description": "Compaction trigger threshold: cache miss rate in rolling window."
+      },
+      "compactionTriggerWindowTurns": {
+        "type": "number",
+        "default": 8,
+        "description": "Rolling window turns used for miss-rate based compaction trigger."
+      },
+      "compactionTriggerCooldownTurns": {
+        "type": "number",
+        "default": 6,
+        "description": "Minimum turns between two compaction trigger recommendations."
+      },
       "debugTapProviderTraffic": {
         "type": "boolean",
         "default": false,
@@ -126,6 +156,41 @@
       "debugTapPath": {
         "type": "string",
         "description": "Path for provider traffic tap JSONL output."
+      },
+      "responseRootLinkEnabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable response root-link rewriting for openai-responses requests."
+      },
+      "responseRootPrimeEnabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Prime a developer-only root response when root-link cache is missing."
+      },
+      "responseRootMinInstructionChars": {
+        "type": "number",
+        "default": 1200,
+        "description": "Minimum stable prompt chars required to enable root-link/prime logic."
+      },
+      "responseRootPrefixMaxChars": {
+        "type": "number",
+        "default": 6000,
+        "description": "Max chars stored as root prefix sample."
+      },
+      "responseRootMatchMinRatio": {
+        "type": "number",
+        "default": 0.7,
+        "description": "Prefix match ratio threshold for root-link injection."
+      },
+      "proxyAutostart": {
+        "type": "boolean",
+        "default": true,
+        "description": "Autostart embedded responses proxy when plugin starts."
+      },
+      "proxyPort": {
+        "type": "number",
+        "default": 17667,
+        "description": "Embedded responses proxy listen port."
       }
     }
   },
@@ -195,11 +260,50 @@
     "cacheProbeWarmSeconds": {
       "label": "Cache Probe Warm Window (s)"
     },
+    "compactionTriggerEnabled": {
+      "label": "Compaction Trigger Enabled"
+    },
+    "compactionTriggerInputTokens": {
+      "label": "Compaction Trigger Input Tokens"
+    },
+    "compactionTriggerTurnCount": {
+      "label": "Compaction Trigger Turn Count"
+    },
+    "compactionTriggerMissRateThreshold": {
+      "label": "Compaction Trigger Miss Rate"
+    },
+    "compactionTriggerWindowTurns": {
+      "label": "Compaction Trigger Window Turns"
+    },
+    "compactionTriggerCooldownTurns": {
+      "label": "Compaction Trigger Cooldown Turns"
+    },
     "debugTapProviderTraffic": {
       "label": "Debug Tap Provider Traffic"
     },
     "debugTapPath": {
       "label": "Debug Tap Path"
+    },
+    "responseRootLinkEnabled": {
+      "label": "Response Root Link Enabled"
+    },
+    "responseRootPrimeEnabled": {
+      "label": "Response Root Prime Enabled"
+    },
+    "responseRootMinInstructionChars": {
+      "label": "Response Root Min Chars"
+    },
+    "responseRootPrefixMaxChars": {
+      "label": "Response Root Prefix Max Chars"
+    },
+    "responseRootMatchMinRatio": {
+      "label": "Response Root Match Ratio"
+    },
+    "proxyAutostart": {
+      "label": "Proxy Autostart"
+    },
+    "proxyPort": {
+      "label": "Proxy Port"
     }
   }
 }

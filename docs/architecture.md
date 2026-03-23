@@ -31,6 +31,7 @@ Physical package layout now mirrors the semantic layers:
 ### Execution Layer
 
 - `module-cache`: prefix-matching candidate evaluation + cache tree registration.
+- `module-compaction-trigger`: static compaction recommendation trigger (responses-first).
 - `module-summary`: builds summary artifacts when requested.
 - `module-compression`: response/tool-content shaping for budget control.
 
@@ -50,6 +51,20 @@ Policy and router can branch behavior by family, for example:
 
 - `openai-responses`: prefer incremental cache-aware policies.
 - `openai-completions`: treat missing `cacheRead` as unknown signal (not forced miss).
+
+## OpenClaw Plugin Runtime Path
+
+Current production path is OpenClaw plugin first:
+
+1. Plugin starts an embedded responses proxy (`ecoclaw/*` provider family).
+2. For `openai-responses`, plugin can apply response root-link
+   (`previous_response_id` injection) on matched stable prefixes.
+3. Shadow pipeline still runs for deterministic decision traces
+   (policy/cache/probe/compaction/summarization signals).
+4. Runtime events are persisted and visualized via the lab dashboard.
+
+This keeps provider-routing behavior inside plugin deployment scope
+without requiring OpenClaw core source patches.
 
 ## Persistence
 

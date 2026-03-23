@@ -1,4 +1,9 @@
-import { createCacheModule, createSummaryModule, createCompressionModule } from "@ecoclaw/layer-execution";
+import {
+  createCacheModule,
+  createCompactionTriggerModule,
+  createSummaryModule,
+  createCompressionModule,
+} from "@ecoclaw/layer-execution";
 import { createTaskRouterModule, createPolicyModule, createDecisionLedgerModule } from "@ecoclaw/layer-decision";
 import { createMemoryStateModule } from "@ecoclaw/layer-data";
 import { openaiAdapter } from "@ecoclaw/provider-openai";
@@ -9,6 +14,7 @@ async function main() {
     modules: [
       createCacheModule({ minPrefixChars: 10 }),
       createPolicyModule({ summaryTriggerStableChars: 20 }),
+      createCompactionTriggerModule(),
       createTaskRouterModule({
         enabled: true,
         tierRoutes: {

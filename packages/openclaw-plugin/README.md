@@ -1,81 +1,97 @@
 # EcoClaw OpenClaw Plugin
 
-Install:
+This plugin adds a runtime optimization layer to OpenClaw and registers an
+explicit provider namespace:
+
+- `ecoclaw/<model>` (example: `ecoclaw/gpt-5.4`)
+
+It includes:
+
+- Embedded responses proxy
+- Response root-link cache reuse
+- Cache/summary/compaction decision modules
+- Session topology + `/ecoclaw` command controls
+- JSONL event tracing for analysis
+
+## 1) Install And Enable
 
 ```bash
-openclaw plugins install ecoclaw
+cd packages/openclaw-plugin
+npm run build
+openclaw plugins install .
+```
+
+Recommended trusted plugin allowlist:
+
+```bash
+openclaw config set plugins.allow "[\"ecoclaw\"]"
+openclaw config set plugins.entries.ecoclaw.enabled true
 openclaw gateway restart
 ```
 
-Optional proxy routing mode:
-
-```bash
-openclaw config set plugins.entries.ecoclaw.config.proxyBaseUrl "http://127.0.0.1:8787/v1"
-openclaw config set plugins.entries.ecoclaw.config.proxyApiKey "sk-xxx"
-openclaw gateway restart
-```
-
-Optional debug logs:
-
-```bash
-openclaw config set plugins.entries.ecoclaw.config.logLevel debug
-openclaw gateway restart
-```
-
-Enable EcoClaw shadow runtime (recommended for current integration):
+## 2) Required Runtime Settings
 
 ```bash
 openclaw config set plugins.entries.ecoclaw.config.runtimeMode shadow
 openclaw config set plugins.entries.ecoclaw.config.stateDir "/tmp/ecoclaw-plugin-state"
 openclaw config set plugins.entries.ecoclaw.config.eventTracePath "/tmp/ecoclaw-plugin-state/ecoclaw/event-trace.jsonl"
-openclaw config set plugins.entries.ecoclaw.config.autoForkOnPolicy true
-openclaw config set plugins.entries.ecoclaw.config.cacheTtlSeconds 600
-openclaw config set plugins.entries.ecoclaw.config.summaryTriggerInputTokens 20000
-openclaw config set plugins.entries.ecoclaw.config.summaryTriggerStableChars 0
-openclaw config set plugins.entries.ecoclaw.config.summaryRecentTurns 8
-openclaw config set plugins.entries.ecoclaw.config.maxSummaryChars 6000
 openclaw gateway restart
 ```
 
-Local build + install test:
+Optional debug:
 
 ```bash
-npm run build
-openclaw plugins install .
+openclaw config set plugins.entries.ecoclaw.config.logLevel debug
+openclaw config set plugins.entries.ecoclaw.config.debugTapProviderTraffic true
 openclaw gateway restart
 ```
 
-Check runtime traces:
+## 3) Model Selection
 
-```bash
-tail -f /tmp/ecoclaw-plugin-state/ecoclaw/event-trace.jsonl
+In OpenClaw, use explicit EcoClaw provider models:
+
+```text
+ecoclaw/gpt-5.4
 ```
 
-Launch a lightweight web inspector for CacheTree and persisted summaries:
+The plugin auto-starts an embedded proxy and syncs explicit model aliases into
+`~/.openclaw/openclaw.json` when possible.
+
+## 4) Commands
+
+Use slash commands in TUI:
+
+```text
+/ecoclaw help              # show command usage and examples
+/ecoclaw status            # current binding (sessionKey/task/logical/seq)
+/ecoclaw cache list        # list known task-cache workspaces
+/ecoclaw cache new <id>    # create/switch current task-cache
+/ecoclaw cache delete <id> # delete task-cache and purge local state
+/ecoclaw session new       # create next logical session in current task-cache
+```
+
+You can also type inline form (`ecoclaw status`), but slash form is preferred.
+
+## 5) Runtime Files
+
+Default state directory:
+
+```text
+/tmp/ecoclaw-plugin-state/ecoclaw/
+```
+
+Important files:
+
+- `event-trace.jsonl`: per-turn pipeline events
+- `provider-traffic.jsonl`: provider tap debug log (if enabled)
+- `response-root-state.json`: root-link metadata cache
+- `sessions/<logical>/turns.jsonl`: logical session turn history
+
+## 6) Dashboard
 
 ```bash
 cd apps/lab-bench
 ECOCLAW_STATE_DIR=/tmp/ecoclaw-plugin-state npm run web:cachetree
-# open http://127.0.0.1:7777
 ```
 
-Task-cache / session controls (prefixed to avoid OpenClaw command conflicts):
-
-```text
-/ecoclaw status
-/ecoclaw cache new [task-id]
-/ecoclaw session new
-```
-
-You can also type inline text commands in chat:
-
-```text
-ecoclaw status
-ecoclaw cache new my-task
-ecoclaw session new
-```
-
-Model semantics:
-- One task-cache can contain multiple sessions.
-- `cache new` starts a new task-cache (session sequence resets to s1).
-- `session new` creates a new session in the current task-cache (s2, s3, ...).
+Open `http://127.0.0.1:7777` to inspect runtime decisions and compaction ROI.

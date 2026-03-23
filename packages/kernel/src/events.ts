@@ -13,6 +13,11 @@ export const ECOCLAW_EVENT_TYPES = {
   POLICY_CACHE_JITTER_DETECTED: "policy.cache.jitter.detected",
   POLICY_CACHE_PROBE_DECIDED: "policy.cache.probe.decided",
   POLICY_CACHE_PROBE_RESULT: "policy.cache.probe.result",
+  // Compaction trigger
+  COMPACTION_TRIGGER_EVALUATED: "compaction.trigger.evaluated",
+  COMPACTION_TRIGGER_RECOMMENDED: "compaction.trigger.recommended",
+  COMPACTION_APPLY_REQUESTED: "compaction.apply.requested",
+  COMPACTION_APPLY_EXECUTED: "compaction.apply.executed",
   // Decision ledger
   DECISION_L1_RECORDED: "decision.l1.recorded",
   // Summary

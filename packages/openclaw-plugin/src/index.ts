@@ -1,10 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
+import { createHash } from "node:crypto";
+import { createServer } from "node:http";
 import { readdir, rm } from "node:fs/promises";
-import { readFile, mkdir, appendFile } from "node:fs/promises";
+import { readFile, mkdir, appendFile, writeFile } from "node:fs/promises";
 import { createOpenClawConnector } from "@ecoclaw/layer-orchestration";
-import { createCacheModule, createSummaryModule, createCompressionModule } from "@ecoclaw/layer-execution";
+import {
+  createCacheModule,
+  createCompactionTriggerModule,
+  createSummaryModule,
+  createCompressionModule,
+} from "@ecoclaw/layer-execution";
 import { createPolicyModule, createDecisionLedgerModule } from "@ecoclaw/layer-decision";
 import { createMemoryStateModule } from "@ecoclaw/layer-data";
 import { openaiAdapter } from "@ecoclaw/provider-openai";
@@ -33,8 +40,21 @@ type EcoClawPluginConfig = {
   cacheProbeHitMinTokens?: number;
   cacheProbeMissesToCold?: number;
   cacheProbeWarmSeconds?: number;
+  compactionTriggerEnabled?: boolean;
+  compactionTriggerInputTokens?: number;
+  compactionTriggerTurnCount?: number;
+  compactionTriggerMissRateThreshold?: number;
+  compactionTriggerWindowTurns?: number;
+  compactionTriggerCooldownTurns?: number;
   debugTapProviderTraffic?: boolean;
   debugTapPath?: string;
+  responseRootLinkEnabled?: boolean;
+  responseRootMinInstructionChars?: number;
+  responseRootPrefixMaxChars?: number;
+  responseRootMatchMinRatio?: number;
+  responseRootPrimeEnabled?: boolean;
+  proxyAutostart?: boolean;
+  proxyPort?: number;
 };
 
 type PluginLogger = {
@@ -278,8 +298,463 @@ function normalizeConfig(raw: unknown): Required<Omit<EcoClawPluginConfig, "prox
     cacheProbeHitMinTokens: Math.max(0, cfg.cacheProbeHitMinTokens ?? 64),
     cacheProbeMissesToCold: Math.max(1, cfg.cacheProbeMissesToCold ?? 2),
     cacheProbeWarmSeconds: Math.max(30, cfg.cacheProbeWarmSeconds ?? 7200),
+    compactionTriggerEnabled: cfg.compactionTriggerEnabled ?? true,
+    compactionTriggerInputTokens: Math.max(0, cfg.compactionTriggerInputTokens ?? 120000),
+    compactionTriggerTurnCount: Math.max(1, cfg.compactionTriggerTurnCount ?? 18),
+    compactionTriggerMissRateThreshold: Math.min(1, Math.max(0, cfg.compactionTriggerMissRateThreshold ?? 0.7)),
+    compactionTriggerWindowTurns: Math.max(3, cfg.compactionTriggerWindowTurns ?? 8),
+    compactionTriggerCooldownTurns: Math.max(0, cfg.compactionTriggerCooldownTurns ?? 6),
     debugTapProviderTraffic: cfg.debugTapProviderTraffic ?? false,
     debugTapPath: cfg.debugTapPath ?? join(stateDir, "ecoclaw", "provider-traffic.jsonl"),
+    responseRootLinkEnabled: cfg.responseRootLinkEnabled ?? true,
+    responseRootMinInstructionChars: Math.max(64, cfg.responseRootMinInstructionChars ?? 1200),
+    responseRootPrefixMaxChars: Math.max(128, cfg.responseRootPrefixMaxChars ?? 6000),
+    responseRootMatchMinRatio: Math.min(1, Math.max(0.1, cfg.responseRootMatchMinRatio ?? 0.7)),
+    responseRootPrimeEnabled: cfg.responseRootPrimeEnabled ?? true,
+    proxyAutostart: cfg.proxyAutostart ?? true,
+    proxyPort: Math.max(1025, Math.min(65535, cfg.proxyPort ?? 17667)),
+  };
+}
+
+type ResponseRootState = {
+  rootResponseId: string;
+  instructionSig: string;
+  instructionChars: number;
+  prefixSample: string;
+  model: string;
+  endpoint: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+function sha256Hex(text: string): string {
+  return createHash("sha256").update(text).digest("hex");
+}
+
+function normalizeText(input: string): string {
+  return input.replace(/\s+/g, " ").trim();
+}
+
+function extractInputText(input: any): string {
+  if (typeof input === "string") return input;
+  if (Array.isArray(input)) {
+    return input
+      .map((entry) => {
+        if (!entry || typeof entry !== "object") return "";
+        const content = (entry as any).content;
+        if (typeof content === "string") return content;
+        if (Array.isArray(content)) {
+          return content
+            .map((c: any) => {
+              if (!c || typeof c !== "object") return "";
+              if (typeof c.text === "string") return c.text;
+              if (typeof c.content === "string") return c.content;
+              return "";
+            })
+            .join("\n");
+        }
+        return "";
+      })
+      .filter(Boolean)
+      .join("\n");
+  }
+  return "";
+}
+
+function getDeveloperAndLastUser(input: any): { developerText: string; userItem: any } | null {
+  if (!Array.isArray(input) || input.length < 2) return null;
+  const first = input[0];
+  const last = input[input.length - 1];
+  if (!first || typeof first !== "object" || String((first as any).role) !== "developer") return null;
+  if (!last || typeof last !== "object" || String((last as any).role) !== "user") return null;
+  const developerText =
+    typeof (first as any).content === "string"
+      ? String((first as any).content)
+      : extractInputText([first]);
+  if (!developerText.trim()) return null;
+  return { developerText, userItem: last };
+}
+
+function normalizeProxyModelId(model: string): string {
+  const trimmed = String(model ?? "").trim();
+  if (!trimmed) return trimmed;
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith("ecoclaw/")) {
+    return trimmed.slice("ecoclaw/".length).trim();
+  }
+  return trimmed;
+}
+
+function commonPrefixRatio(a: string, b: string): number {
+  if (!a || !b) return 0;
+  const maxLen = Math.max(a.length, b.length);
+  const minLen = Math.min(a.length, b.length);
+  let i = 0;
+  while (i < minLen && a[i] === b[i]) i += 1;
+  return i / maxLen;
+}
+
+function extractResponseIdFromAnyText(text: string): string {
+  try {
+    const parsed = JSON.parse(text);
+    const id = String(parsed?.id ?? "");
+    if (id) return id;
+  } catch {
+    // continue to regex extraction
+  }
+  const m = text.match(/"id"\s*:\s*"(resp_[^"]+)"/);
+  return m?.[1] ?? "";
+}
+
+type UpstreamModelDef = {
+  id: string;
+  name: string;
+  reasoning: boolean;
+  input: Array<"text" | "image">;
+  contextWindow: number;
+  maxTokens: number;
+};
+
+type UpstreamConfig = {
+  providerId: string;
+  baseUrl: string;
+  apiKey: string;
+  models: UpstreamModelDef[];
+};
+
+async function detectUpstreamConfig(logger: Required<PluginLogger>): Promise<UpstreamConfig | null> {
+  const cfgPath = join(homedir(), ".openclaw", "openclaw.json");
+  try {
+    const raw = await readFile(cfgPath, "utf8");
+    const parsed = JSON.parse(raw) as any;
+    const providers = parsed?.models?.providers ?? {};
+    const preferred = ["gmn", "openai", "dica", "qwen-portal", "bailian"];
+    const selectedProvider = preferred.find((id) => providers?.[id]?.baseUrl && providers?.[id]?.apiKey) ?? Object.keys(providers)[0];
+    if (!selectedProvider) return null;
+    const p = providers[selectedProvider];
+    const models = Array.isArray(p?.models) ? p.models : [];
+    const normalized: UpstreamModelDef[] = models
+      .filter((m: any) => typeof m?.id === "string" && m.id.trim())
+      .map((m: any) => ({
+        id: String(m.id),
+        name: String(m.name ?? m.id),
+        reasoning: Boolean(m.reasoning ?? false),
+        input: Array.isArray(m.input) ? m.input.filter((x: any) => x === "text" || x === "image") : ["text"],
+        contextWindow: Number(m.contextWindow ?? 128000),
+        maxTokens: Number(m.maxTokens ?? 8192),
+      }));
+    if (!p?.baseUrl || !p?.apiKey) return null;
+    return {
+      providerId: selectedProvider,
+      baseUrl: String(p.baseUrl).replace(/\/+$/, ""),
+      apiKey: String(p.apiKey),
+      models: normalized.length > 0 ? normalized : [{
+        id: "gpt-5.4",
+        name: "gpt-5.4",
+        reasoning: true,
+        input: ["text", "image"],
+        contextWindow: 128000,
+        maxTokens: 8192,
+      }],
+    };
+  } catch (err) {
+    logger.warn(`[ecoclaw] detect upstream config failed: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
+}
+
+async function ensureExplicitProxyModelsInConfig(
+  proxyBaseUrl: string,
+  upstream: UpstreamConfig,
+  logger: Required<PluginLogger>,
+): Promise<void> {
+  const cfgPath = join(homedir(), ".openclaw", "openclaw.json");
+  try {
+    const raw = await readFile(cfgPath, "utf8");
+    const doc = JSON.parse(raw) as any;
+    doc.models = doc.models ?? {};
+    doc.models.providers = doc.models.providers ?? {};
+    doc.agents = doc.agents ?? {};
+    doc.agents.defaults = doc.agents.defaults ?? {};
+    doc.agents.defaults.models = doc.agents.defaults.models ?? {};
+
+    const existingProvider = doc.models.providers.ecoclaw ?? {};
+    const desiredModels = upstream.models.map((m) => ({
+      id: m.id,
+      name: m.name,
+      reasoning: m.reasoning,
+      input: m.input,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: m.contextWindow,
+      maxTokens: m.maxTokens,
+    }));
+    const nextProvider = {
+      ...existingProvider,
+      baseUrl: proxyBaseUrl,
+      apiKey: "ecoclaw-local",
+      api: "openai-responses",
+      authHeader: false,
+      models: desiredModels,
+    };
+    doc.models.providers.ecoclaw = nextProvider;
+
+    for (const model of upstream.models) {
+      const key = `ecoclaw/${model.id}`;
+      if (!doc.agents.defaults.models[key]) {
+        doc.agents.defaults.models[key] = {};
+      }
+    }
+
+    const nextRaw = JSON.stringify(doc, null, 2);
+    if (nextRaw !== raw) {
+      await writeFile(cfgPath, nextRaw, "utf8");
+      logger.info(
+        `[ecoclaw] synced explicit model keys into openclaw.json (${upstream.models.length} models).`,
+      );
+    }
+  } catch (err) {
+    logger.warn(
+      `[ecoclaw] sync explicit proxy models failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}
+
+async function startEmbeddedResponsesProxy(
+  cfg: ReturnType<typeof normalizeConfig>,
+  logger: Required<PluginLogger>,
+): Promise<{ baseUrl: string; upstream: UpstreamConfig; close: () => Promise<void> } | null> {
+  if (!cfg.proxyAutostart) return null;
+  const upstream = await detectUpstreamConfig(logger);
+  if (!upstream) {
+    logger.warn("[ecoclaw] no upstream provider discovered; proxy disabled.");
+    return null;
+  }
+  const rootStateBySig = new Map<string, ResponseRootState>();
+  const rootStatePath = join(cfg.stateDir, "ecoclaw", "response-root-state.json");
+  try {
+    const raw = await readFile(rootStatePath, "utf8");
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr)) {
+      for (const item of arr) {
+        if (!item || typeof item !== "object") continue;
+        const s = item as ResponseRootState;
+        if (s.instructionSig && s.rootResponseId) rootStateBySig.set(s.instructionSig, s);
+      }
+    }
+  } catch {
+    // ignore.
+  }
+
+  async function persistRootState(): Promise<void> {
+    try {
+      await mkdir(dirname(rootStatePath), { recursive: true });
+      await writeFile(rootStatePath, JSON.stringify(Array.from(rootStateBySig.values()), null, 2), "utf8");
+    } catch (err) {
+      logger.warn(`[ecoclaw] persist root state failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  const server = createServer(async (req, res) => {
+    try {
+      if (req.method === "GET" && req.url === "/health") {
+        res.statusCode = 200;
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify({ ok: true }));
+        return;
+      }
+      if (req.method !== "POST" || req.url !== "/v1/responses") {
+        res.statusCode = 404;
+        res.end("not found");
+        return;
+      }
+      const chunks: Buffer[] = [];
+      for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      const body = Buffer.concat(chunks).toString("utf8");
+      const payload = JSON.parse(body);
+      const model = String(payload?.model ?? "");
+      const upstreamModel = normalizeProxyModelId(model);
+      if (upstreamModel && upstreamModel !== model) {
+        payload.model = upstreamModel;
+      }
+      const instructions = normalizeText(String(payload?.instructions ?? ""));
+      const inputText = normalizeText(extractInputText(payload?.input));
+      const devAndUser = getDeveloperAndLastUser(payload?.input);
+      const developerText = normalizeText(devAndUser?.developerText ?? "");
+      const sigSource = developerText || instructions;
+      const sig = sha256Hex(`${upstream.baseUrl}|${upstreamModel || model}|${sigSource}`);
+      const hasPrev = typeof payload?.previous_response_id === "string" && payload.previous_response_id.length > 0;
+      logger.info(
+        `[ecoclaw] proxy request model=${model || "unknown"} upstreamModel=${upstreamModel || "unknown"} hasPrev=${hasPrev ? "yes" : "no"} instrChars=${instructions.length}`,
+      );
+      if (cfg.debugTapProviderTraffic) {
+        const debugRecord = {
+          at: new Date().toISOString(),
+          stage: "proxy_inbound",
+          model,
+          upstreamModel,
+          hasPrev,
+          instructionsChars: instructions.length,
+          inputChars: inputText.length,
+          devUserDetected: Boolean(devAndUser),
+          developerChars: developerText.length,
+          rootSig: sig,
+          rootStateExistsBefore: rootStateBySig.has(sig),
+          rootPrimeEnabled: cfg.responseRootPrimeEnabled,
+          payload,
+        };
+        await mkdir(dirname(cfg.debugTapPath), { recursive: true });
+        await appendFile(cfg.debugTapPath, `${JSON.stringify(debugRecord)}\n`, "utf8");
+      }
+      let injectedFromRoot = false;
+      if (cfg.responseRootLinkEnabled && !hasPrev) {
+        let state = rootStateBySig.get(sig);
+        if (
+          !state &&
+          cfg.responseRootPrimeEnabled &&
+          devAndUser &&
+          developerText.length >= cfg.responseRootMinInstructionChars
+        ) {
+          try {
+            const primePayload: any = { ...payload };
+            delete primePayload.previous_response_id;
+            primePayload.model = upstreamModel || model;
+            primePayload.store = true;
+            primePayload.input = [{ role: "developer", content: devAndUser.developerText }];
+            const primeResp = await fetch(`${upstream.baseUrl}/responses`, {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                authorization: `Bearer ${upstream.apiKey}`,
+              },
+              body: JSON.stringify(primePayload),
+            });
+            const primeTxt = await primeResp.text();
+            const primeId = extractResponseIdFromAnyText(primeTxt);
+            if (primeResp.ok && primeId) {
+              const nowIso = new Date().toISOString();
+              state = {
+                rootResponseId: primeId,
+                instructionSig: sig,
+                instructionChars: sigSource.length,
+                prefixSample: sigSource.slice(0, cfg.responseRootPrefixMaxChars),
+                model: upstreamModel || model,
+                endpoint: upstream.baseUrl,
+                createdAt: nowIso,
+                updatedAt: nowIso,
+              };
+              rootStateBySig.set(sig, state);
+              void persistRootState();
+              logger.info(
+                `[ecoclaw] proxy primed root response model=${model} rootId=${primeId.slice(0, 18)}...`,
+              );
+            }
+          } catch (err) {
+            logger.warn(
+              `[ecoclaw] proxy prime root failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        }
+        if (state?.rootResponseId && devAndUser) {
+          payload.previous_response_id = state.rootResponseId;
+          payload.input = [devAndUser.userItem];
+          injectedFromRoot = true;
+          logger.info(`[ecoclaw] proxy injected previous_response_id model=${model} mode=developer-root`);
+        } else if (state?.rootResponseId && instructions.length >= cfg.responseRootMinInstructionChars) {
+          const ratio = commonPrefixRatio(inputText, state.prefixSample);
+          if (ratio >= cfg.responseRootMatchMinRatio) {
+            payload.previous_response_id = state.rootResponseId;
+            injectedFromRoot = true;
+            logger.info(
+              `[ecoclaw] proxy injected previous_response_id model=${model} ratio=${ratio.toFixed(2)}`,
+            );
+          }
+        }
+      }
+      const upstreamResp = await fetch(`${upstream.baseUrl}/responses`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${upstream.apiKey}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const txt = await upstreamResp.text();
+      const responseId = extractResponseIdFromAnyText(txt);
+      if (!hasPrev && !injectedFromRoot && responseId && sigSource.length >= cfg.responseRootMinInstructionChars) {
+        const nowIso = new Date().toISOString();
+        rootStateBySig.set(sig, {
+          rootResponseId: responseId,
+          instructionSig: sig,
+          instructionChars: sigSource.length,
+          prefixSample: sigSource.slice(0, cfg.responseRootPrefixMaxChars),
+          model: upstreamModel || model,
+          endpoint: upstream.baseUrl,
+          createdAt: rootStateBySig.get(sig)?.createdAt ?? nowIso,
+          updatedAt: nowIso,
+        });
+        void persistRootState();
+      }
+      if (cfg.debugTapProviderTraffic) {
+        const debugRecord = {
+          at: new Date().toISOString(),
+          stage: "proxy_forwarded",
+          model,
+          upstreamModel,
+          forwardedHasPrev:
+            typeof payload?.previous_response_id === "string" && payload.previous_response_id.length > 0,
+          forwardedInputCount: Array.isArray(payload?.input) ? payload.input.length : -1,
+          forwardedInputRoles: Array.isArray(payload?.input)
+            ? payload.input.map((x: any) => String(x?.role ?? ""))
+            : [],
+          forwardedDeveloperChars:
+            Array.isArray(payload?.input) &&
+            payload.input.length > 0 &&
+            String(payload.input[0]?.role) === "developer" &&
+            typeof payload.input[0]?.content === "string"
+              ? String(payload.input[0].content).length
+              : 0,
+        };
+        await mkdir(dirname(cfg.debugTapPath), { recursive: true });
+        await appendFile(cfg.debugTapPath, `${JSON.stringify(debugRecord)}\n`, "utf8");
+      }
+      if (cfg.debugTapProviderTraffic) {
+        const debugRecord = {
+          at: new Date().toISOString(),
+          stage: "proxy_outbound",
+          model,
+          upstreamModel,
+          status: upstreamResp.status,
+          responseId: responseId || null,
+          responseText: txt,
+        };
+        await mkdir(dirname(cfg.debugTapPath), { recursive: true });
+        await appendFile(cfg.debugTapPath, `${JSON.stringify(debugRecord)}\n`, "utf8");
+      }
+      res.statusCode = upstreamResp.status;
+      res.setHeader("content-type", upstreamResp.headers.get("content-type") ?? "application/json");
+      res.end(txt);
+    } catch (err) {
+      res.statusCode = 500;
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ error: String(err) }));
+    }
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(cfg.proxyPort, "127.0.0.1", () => {
+      server.off("error", reject);
+      resolve();
+    });
+  });
+  const baseUrl = `http://127.0.0.1:${cfg.proxyPort}/v1`;
+  logger.info(`[ecoclaw] embedded responses proxy listening at ${baseUrl}`);
+  return {
+    baseUrl,
+    upstream,
+    close: async () => {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    },
   };
 }
 
@@ -287,7 +762,7 @@ function maybeInstallProviderTrafficTap(
   cfg: ReturnType<typeof normalizeConfig>,
   logger: Required<PluginLogger>,
 ): void {
-  if (!cfg.debugTapProviderTraffic) return;
+  if (!cfg.debugTapProviderTraffic && !cfg.responseRootLinkEnabled) return;
   const g = globalThis as any;
   if (g.__ecoclaw_provider_tap_installed__) return;
   const origFetch = g.fetch;
@@ -295,8 +770,44 @@ function maybeInstallProviderTrafficTap(
     logger.warn("[ecoclaw] debugTapProviderTraffic requested but global fetch is unavailable.");
     return;
   }
+  const rootStateBySig = new Map<string, ResponseRootState>();
+  const rootStatePath = join(cfg.stateDir, "ecoclaw", "response-root-state.json");
+  let rootStateLoaded = false;
+
+  async function ensureRootStateLoaded(): Promise<void> {
+    if (rootStateLoaded) return;
+    rootStateLoaded = true;
+    try {
+      const raw = await readFile(rootStatePath, "utf8");
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        for (const item of arr) {
+          if (!item || typeof item !== "object") continue;
+          const s = item as ResponseRootState;
+          if (!s.instructionSig || !s.rootResponseId) continue;
+          rootStateBySig.set(s.instructionSig, s);
+        }
+      }
+    } catch {
+      // ignore missing/invalid cache file.
+    }
+  }
+
+  async function persistRootState(): Promise<void> {
+    try {
+      await mkdir(dirname(rootStatePath), { recursive: true });
+      const arr = Array.from(rootStateBySig.values());
+      await writeFile(rootStatePath, JSON.stringify(arr, null, 2), "utf8");
+    } catch (err) {
+      logger.warn(
+        `[ecoclaw] root state persist failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
   g.__ecoclaw_provider_tap_installed__ = true;
   g.fetch = async (input: any, init?: any) => {
+    await ensureRootStateLoaded();
     let url = "";
     try {
       url =
@@ -309,6 +820,7 @@ function maybeInstallProviderTrafficTap(
       url = "";
     }
     const lower = url.toLowerCase();
+    const isResponsesCall = lower.includes("/responses");
     const isProviderCall =
       lower.includes("api.openai.com") ||
       lower.includes("api.anthropic.com") ||
@@ -316,22 +828,101 @@ function maybeInstallProviderTrafficTap(
       lower.includes("openrouter.ai");
 
     let reqBody = "";
+    let bodySource: "init" | "request" | "none" = "none";
     if (isProviderCall) {
       try {
         if (typeof init?.body === "string") {
           reqBody = init.body;
+          bodySource = "init";
         } else if (input && typeof input.clone === "function") {
           const clone = input.clone();
           reqBody = await clone.text();
+          bodySource = reqBody ? "request" : "none";
         }
       } catch {
         reqBody = "";
+        bodySource = "none";
+      }
+    }
+
+    let usedRootLink = false;
+    let rootSig = "";
+    if (cfg.responseRootLinkEnabled && isProviderCall && isResponsesCall && reqBody) {
+      try {
+        const payload = JSON.parse(reqBody);
+        const model = String(payload?.model ?? "");
+        const instructions = normalizeText(String(payload?.instructions ?? ""));
+        const inputText = normalizeText(extractInputText(payload?.input));
+        if (instructions.length >= cfg.responseRootMinInstructionChars && model) {
+          rootSig = sha256Hex(`${url}|${model}|${instructions}`);
+          const state = rootStateBySig.get(rootSig);
+          const hasPrev = typeof payload?.previous_response_id === "string" && payload.previous_response_id.length > 0;
+          if (!hasPrev && state?.rootResponseId) {
+            const ratio = commonPrefixRatio(inputText, state.prefixSample);
+            if (ratio >= cfg.responseRootMatchMinRatio) {
+              payload.previous_response_id = state.rootResponseId;
+              const nextBody = JSON.stringify(payload);
+              if (bodySource === "init") {
+                init = { ...(init ?? {}), body: nextBody };
+              } else if (bodySource === "request" && input) {
+                input = new Request(input, { body: nextBody });
+              }
+              reqBody = nextBody;
+              usedRootLink = true;
+              logger.info(
+                `[ecoclaw] response_root_link injected previous_response_id model=${model} ratio=${ratio.toFixed(2)}`,
+              );
+            }
+          }
+        }
+      } catch (err) {
+        logger.warn(
+          `[ecoclaw] response_root_link preflight parse failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
 
     const startedAt = new Date().toISOString();
     const method = String(init?.method ?? input?.method ?? "GET").toUpperCase();
     const res = await origFetch(input, init);
+
+    if (cfg.responseRootLinkEnabled && isProviderCall && isResponsesCall && typeof reqBody === "string" && reqBody) {
+      try {
+        const reqJson = JSON.parse(reqBody);
+        const model = String(reqJson?.model ?? "");
+        const instructions = normalizeText(String(reqJson?.instructions ?? ""));
+        const hasPrev = typeof reqJson?.previous_response_id === "string" && reqJson.previous_response_id.length > 0;
+        if (!hasPrev && instructions.length >= cfg.responseRootMinInstructionChars && model) {
+          const clone = res.clone();
+          const txt = await clone.text();
+          const parsed = JSON.parse(txt);
+          const responseId = String(parsed?.id ?? "");
+          if (responseId) {
+            const nowIso = new Date().toISOString();
+            const inputText = normalizeText(extractInputText(reqJson?.input)).slice(0, cfg.responseRootPrefixMaxChars);
+            const sig = sha256Hex(`${url}|${model}|${instructions}`);
+            const prev = rootStateBySig.get(sig);
+            const next: ResponseRootState = {
+              rootResponseId: responseId,
+              instructionSig: sig,
+              instructionChars: instructions.length,
+              prefixSample: inputText,
+              model,
+              endpoint: url,
+              createdAt: prev?.createdAt ?? nowIso,
+              updatedAt: nowIso,
+            };
+            rootStateBySig.set(sig, next);
+            await persistRootState();
+            logger.info(
+              `[ecoclaw] response_root_link captured root model=${model} instrChars=${instructions.length} injected=${usedRootLink}`,
+            );
+          }
+        }
+      } catch {
+        // Ignore parse errors from non-json responses.
+      }
+    }
 
     if (isProviderCall) {
       void (async () => {
@@ -355,12 +946,16 @@ function maybeInstallProviderTrafficTap(
             url,
             status: Number((res as any)?.status ?? 0),
             requestBody: reqBody || undefined,
+            rootSig: rootSig || undefined,
+            rootLinkInjected: usedRootLink || undefined,
             responseUsage: usage || undefined,
             responseBody: parsed ?? (txt ? txt.slice(0, 4000) : undefined),
           };
-          const p = cfg.debugTapPath;
-          await mkdir(dirname(p), { recursive: true });
-          await appendFile(p, `${JSON.stringify(rec)}\n`, "utf8");
+          if (cfg.debugTapProviderTraffic) {
+            const p = cfg.debugTapPath;
+            await mkdir(dirname(p), { recursive: true });
+            await appendFile(p, `${JSON.stringify(rec)}\n`, "utf8");
+          }
         } catch (err) {
           logger.warn(
             `[ecoclaw] provider tap write failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -370,7 +965,9 @@ function maybeInstallProviderTrafficTap(
     }
     return res;
   };
-  logger.info(`[ecoclaw] Provider traffic tap enabled. path=${cfg.debugTapPath}`);
+  logger.info(
+    `[ecoclaw] Provider interception enabled. tap=${cfg.debugTapProviderTraffic ? cfg.debugTapPath : "off"} rootLink=${cfg.responseRootLinkEnabled ? "on" : "off"}`,
+  );
 }
 
 function toJsonSafe(value: unknown, seen = new WeakSet<object>()): unknown {
@@ -483,24 +1080,43 @@ function hookOn(api: any, event: string, handler: (...args: any[]) => any): void
   }
 }
 
-function maybeRegisterProxyProvider(api: any, cfg: ReturnType<typeof normalizeConfig>, logger: Required<PluginLogger>) {
-  if (!cfg.proxyBaseUrl) return;
+function maybeRegisterProxyProvider(
+  api: any,
+  cfg: ReturnType<typeof normalizeConfig>,
+  logger: Required<PluginLogger>,
+  baseUrl: string,
+  upstream: UpstreamConfig,
+) {
   if (typeof api.registerProvider !== "function") {
     logger.warn("[ecoclaw] registerProvider not supported by this OpenClaw version.");
     return;
   }
 
   try {
+    const modelIds = upstream.models.map((m) => m.id);
+    const modelDefs = upstream.models.map((m) => ({
+      id: m.id,
+      name: m.name,
+      api: "openai-responses",
+      reasoning: m.reasoning,
+      input: m.input,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: m.contextWindow,
+      maxTokens: m.maxTokens,
+    }));
     api.registerProvider({
       id: "ecoclaw",
       name: "EcoClaw Router",
       label: "EcoClaw Router",
-      api: "openai-completions",
-      baseUrl: cfg.proxyBaseUrl,
-      apiKey: cfg.proxyApiKey,
-      models: ["auto"],
+      api: "openai-responses",
+      baseUrl,
+      apiKey: cfg.proxyApiKey ?? "ecoclaw-local",
+      authHeader: false,
+      models: modelIds.length > 0 ? modelDefs : ["gpt-5.4"],
     });
-    logger.info("[ecoclaw] Registered provider ecoclaw/auto via proxyBaseUrl.");
+    logger.info(
+      `[ecoclaw] Registered provider ecoclaw/* via embedded proxy. mirrored=${modelIds.slice(0, 6).join(",")}${modelIds.length > 6 ? "..." : ""}`,
+    );
   } catch (err: unknown) {
     logger.error(`[ecoclaw] Failed to register provider: ${err instanceof Error ? err.message : String(err)}`);
   }
@@ -853,8 +1469,38 @@ module.exports = {
       return;
     }
 
-    maybeRegisterProxyProvider(api, cfg, logger);
-    maybeInstallProviderTrafficTap(cfg, logger);
+    let proxyRuntime: Awaited<ReturnType<typeof startEmbeddedResponsesProxy>> | null = null;
+    let proxyInitDone = false;
+    let proxyInitPromise: Promise<void> | null = null;
+
+    const ensureProxyReady = async (): Promise<void> => {
+      if (proxyInitDone) return;
+      if (proxyInitPromise) return proxyInitPromise;
+      proxyInitPromise = (async () => {
+        const g = globalThis as any;
+        const existing = g.__ecoclaw_embedded_proxy_runtime__;
+        if (existing && existing.baseUrl && existing.upstream) {
+          proxyRuntime = existing;
+          proxyInitDone = true;
+          return;
+        }
+        proxyRuntime = await startEmbeddedResponsesProxy(cfg, logger);
+        if (!proxyRuntime) return;
+        g.__ecoclaw_embedded_proxy_runtime__ = proxyRuntime;
+        maybeRegisterProxyProvider(api, cfg, logger, proxyRuntime.baseUrl, proxyRuntime.upstream);
+        await ensureExplicitProxyModelsInConfig(proxyRuntime.baseUrl, proxyRuntime.upstream, logger);
+        proxyInitDone = true;
+      })().catch((err) => {
+        logger.warn(`[ecoclaw] embedded proxy init failed: ${err instanceof Error ? err.message : String(err)}`);
+      }).finally(() => {
+        proxyInitPromise = null;
+      });
+      return proxyInitPromise;
+    };
+
+    if (cfg.debugTapProviderTraffic) {
+      maybeInstallProviderTrafficTap(cfg, logger);
+    }
     installLlmHookTap(api, cfg, logger);
     const topology = createSessionTopologyManager();
     registerEcoClawCommand(api, logger, topology, cfg);
@@ -872,6 +1518,14 @@ module.exports = {
                 cacheProbeHitMinTokens: cfg.cacheProbeHitMinTokens,
                 cacheProbeMissesToCold: cfg.cacheProbeMissesToCold,
                 cacheProbeWarmSeconds: cfg.cacheProbeWarmSeconds,
+              }),
+              createCompactionTriggerModule({
+                enabled: cfg.compactionTriggerEnabled,
+                triggerInputTokens: cfg.compactionTriggerInputTokens,
+                triggerTurnCount: cfg.compactionTriggerTurnCount,
+                missRateThreshold: cfg.compactionTriggerMissRateThreshold,
+                missRateWindowTurns: cfg.compactionTriggerWindowTurns,
+                cooldownTurns: cfg.compactionTriggerCooldownTurns,
               }),
               createDecisionLedgerModule(),
               createMemoryStateModule({ maxSummaryChars: cfg.maxSummaryChars }),
@@ -1023,12 +1677,14 @@ module.exports = {
       api.registerService({
         id: "ecoclaw-runtime",
         start: () => {
+          void ensureProxyReady();
           logger.info("[ecoclaw] Plugin active.");
-          if (cfg.proxyBaseUrl) {
-            logger.info(`[ecoclaw] Proxy mode baseUrl=${cfg.proxyBaseUrl}`);
+          if (proxyRuntime?.baseUrl) {
+            logger.info(`[ecoclaw] Embedded proxy active at ${proxyRuntime.baseUrl}`);
           } else {
-            logger.info("[ecoclaw] Running in hook-only mode (no proxy provider configured).");
+            logger.info("[ecoclaw] Embedded proxy unavailable; ecoclaw provider was not registered.");
           }
+          logger.info("[ecoclaw] Use explicit model key: ecoclaw/<model> (example: ecoclaw/gpt-5.4).");
           logger.info(
             `[ecoclaw] Runtime mode=${cfg.runtimeMode} stateDir=${cfg.stateDir} autoFork=${cfg.autoForkOnPolicy} cacheTtl=${cfg.cacheTtlSeconds}s summaryTriggerInputTokens=${cfg.summaryTriggerInputTokens}`,
           );
@@ -1037,6 +1693,19 @@ module.exports = {
           }
         },
         stop: () => {
+          if (proxyRuntime) {
+            void proxyRuntime.close().catch((err) => {
+              logger.warn(
+                `[ecoclaw] embedded proxy stop failed: ${err instanceof Error ? err.message : String(err)}`,
+              );
+            });
+            const g = globalThis as any;
+            if (g.__ecoclaw_embedded_proxy_runtime__ === proxyRuntime) {
+              delete g.__ecoclaw_embedded_proxy_runtime__;
+            }
+            proxyRuntime = null;
+            proxyInitDone = false;
+          }
           logger.info("[ecoclaw] Plugin stopped.");
         },
       });

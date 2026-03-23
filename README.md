@@ -1,40 +1,79 @@
-# EcoClaw: Resource-Efficient Execution for Language Model Agents
+# EcoClaw
 
-A pluggable context operating system for language model agents:
+EcoClaw is a runtime optimization layer for OpenClaw agents with one goal:
+improve token efficiency while keeping task quality stable.
 
-- Prompt cache orchestration (OpenAI/Anthropic aware)
-- Idle summarization and context rehydration
-- Tool output compression and token budgeting
-- Retrieval hooks (QMD-style / memory search)
-- Task-aware subagent routing
+## What This Version Adds
 
-## Design Choice: Single Session First
+- Embedded `openai-responses` proxy provider (`ecoclaw/*` explicit model keys)
+- Response root-link strategy for cache reuse (`previous_response_id` injection)
+- Static compaction trigger module in execution layer
+- Runtime decision dashboard (replaces the old cache-tree-only view)
+- Expanded `/ecoclaw` command set (`help/status/cache/session` controls)
+- Full event tracing for Data / Decision / Execution / Orchestration analysis
 
-This repository implements **single-session runtime behavior first** for safety and fast iteration.
-Cross-session reuse is represented by explicit interfaces (`MemoryGraph`, `PromptProfileManager`) and can be enabled later without breaking module APIs.
+## High-Level Framework
 
-This avoids coupling cache stability to evolving cross-session memory too early.
+EcoClaw is organized as semantic layers:
 
-## Package Layout
+- `packages/kernel`: runtime context, pipeline contracts, event bus
+- `packages/layers/data`: memory-state and retrieval
+- `packages/layers/decision`: policy, task-router, decision-ledger
+- `packages/layers/execution`: cache, compaction-trigger, summary, compression
+- `packages/layers/orchestration`: OpenClaw connector and session topology
+- `packages/openclaw-plugin`: deployable OpenClaw plugin entry
+- `apps/lab-bench`: benchmark harness and runtime dashboard
 
-- `packages/kernel`: pipeline, contracts, event bus
-- `packages/layers/data`: memory-state + retrieval layer
-- `packages/layers/decision`: policy + task-router + decision-ledger layer
-- `packages/layers/execution`: cache + summary + compression layer
-- `packages/layers/orchestration`: OpenClaw runtime orchestration connector
-- `packages/providers/*`: provider-specific cache + usage adapters
-- `packages/storage/fs`: filesystem-backed runtime state store
-- `packages/observability`: metrics sink primitives
-- `apps/lab-bench`: replay + A/B harness scaffold
+Detailed architecture: [docs/architecture.md](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/docs/architecture.md)
 
-## OpenClaw Plugin (WIP)
+## Quick Start
 
-Target plug-and-play flow:
+1. Install dependencies and build:
 
 ```bash
-openclaw plugins install ecoclaw
+npm install
+npm run build
+```
+
+2. Install plugin into OpenClaw:
+
+```bash
+cd packages/openclaw-plugin
+npm run build
+openclaw plugins install .
 openclaw gateway restart
 ```
 
-The plugin package lives at `packages/openclaw-plugin` and is designed to be
-published as npm package `ecoclaw`.
+3. Use explicit EcoClaw provider model in OpenClaw:
+
+```text
+ecoclaw/gpt-5.4
+```
+
+Plugin usage and command guide: [packages/openclaw-plugin/README.md](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/README.md)
+
+## Runtime Dashboard
+
+```bash
+cd apps/lab-bench
+ECOCLAW_STATE_DIR=/tmp/ecoclaw-plugin-state npm run web:cachetree
+# open http://127.0.0.1:7777
+```
+
+The dashboard focuses on:
+
+- Per-turn token usage (input/output/cacheRead/net)
+- Layer signals and module execution traces
+- Compaction ROI windows (pre/post turn comparison)
+
+## Benchmarking
+
+PinchBench examples:
+
+```bash
+# baseline
+./experiments/scripts/run_pinchbench_baseline.sh --model gmn/gpt-5.4 --suite all --runs 1 --parallel 1
+
+# with EcoClaw proxy provider
+./experiments/scripts/run_pinchbench_baseline.sh --model ecoclaw/gpt-5.4 --suite all --runs 1 --parallel 1
+```

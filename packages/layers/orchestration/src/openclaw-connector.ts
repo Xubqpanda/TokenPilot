@@ -3,6 +3,7 @@ import { appendFile, mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
   ECOCLAW_EVENT_TYPES,
+  appendRuntimeEvent,
   findRuntimeEventsByType,
   RuntimePipeline,
   resolveApiFamily,
@@ -142,16 +143,18 @@ export function createOpenClawConnector(cfg: OpenClawConnectorConfig) {
     result: RuntimeTurnResult,
     invokeModel: (ctx: RuntimeTurnContext) => Promise<RuntimeTurnResult>,
   ) => {
-    if (!autoForkOnPolicy) return;
+    if (!autoForkOnPolicy) return { applied: false, reason: "auto_fork_disabled" } as const;
     const resultMeta = (result.metadata ?? {}) as Record<string, unknown>;
     const forkEvents = findRuntimeEventsByType(resultMeta, ECOCLAW_EVENT_TYPES.POLICY_FORK_RECOMMENDED);
     const summaryEvents = findRuntimeEventsByType(resultMeta, ECOCLAW_EVENT_TYPES.SUMMARY_GENERATED);
-    if (forkEvents.length === 0 || summaryEvents.length === 0) return;
+    if (forkEvents.length === 0 || summaryEvents.length === 0) {
+      return { applied: false, reason: "no_fork_or_summary_event" } as const;
+    }
 
     const latestSummary = summaryEvents[summaryEvents.length - 1];
     const summaryPayload = (latestSummary.payload ?? {}) as Record<string, unknown>;
     const summaryText = String(summaryPayload.summaryText ?? "").trim();
-    if (!summaryText) return;
+    if (!summaryText) return { applied: false, reason: "empty_summary_text" } as const;
     const resumePrefixPrompt = String(summaryPayload.resumePrefixPrompt ?? "").trim();
     const recentMessagesText = toRecentMessagesText(summaryPayload.recentMessages);
     const seedSummary = [
@@ -191,7 +194,14 @@ export function createOpenClawConnector(cfg: OpenClawConnectorConfig) {
       ],
     };
     // Seed the new physical session for subsequent user turns.
-    await pipeline.run(seedCtx, invokeModel);
+    const seedResult = await pipeline.run(seedCtx, invokeModel);
+    return {
+      applied: true,
+      newPhysical,
+      fromPhysical: physicalSessionId,
+      summaryChars: summaryText.length,
+      seedUsage: seedResult.usage,
+    } as const;
   };
 
   return {
@@ -213,7 +223,53 @@ export function createOpenClawConnector(cfg: OpenClawConnectorConfig) {
       };
       try {
         const result = await pipeline.run(routedCtx, invokeModel);
-        await maybeForkAfterPolicy(logicalSessionId, physicalSessionId, routedCtx, result, invokeModel);
+        const forkOutcome = await maybeForkAfterPolicy(
+          logicalSessionId,
+          physicalSessionId,
+          routedCtx,
+          result,
+          invokeModel,
+        );
+        if (forkOutcome.applied) {
+          const usage = result.usage ?? {};
+          const payload = {
+            strategy: "summary_then_fork",
+            logicalSessionId,
+            fromPhysicalSessionId: forkOutcome.fromPhysical,
+            toPhysicalSessionId: forkOutcome.newPhysical,
+            summaryChars: forkOutcome.summaryChars,
+            compactionTurn: {
+              promptTokens:
+                typeof usage.inputTokens === "number"
+                  ? usage.inputTokens
+                  : undefined,
+              completionTokens:
+                typeof usage.outputTokens === "number"
+                  ? usage.outputTokens
+                  : undefined,
+              cacheReadTokens:
+                typeof usage.cacheReadTokens === "number"
+                  ? usage.cacheReadTokens
+                  : typeof usage.cachedTokens === "number"
+                    ? usage.cachedTokens
+                    : undefined,
+            },
+            seedUsage: forkOutcome.seedUsage,
+          };
+          result.metadata = appendRuntimeEvent(
+            (result.metadata ?? {}) as Record<string, unknown>,
+            {
+              type: ECOCLAW_EVENT_TYPES.COMPACTION_APPLY_EXECUTED,
+              source: "connector-openclaw",
+              at: new Date().toISOString(),
+              payload,
+            },
+          );
+          result.metadata = {
+            ...(result.metadata ?? {}),
+            compactionApply: payload,
+          };
+        }
         const endedAt = new Date().toISOString();
         await appendEventTrace(logicalSessionId, physicalSessionId, routedCtx, result);
         await stateStore?.appendTurn({
