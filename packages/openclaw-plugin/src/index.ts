@@ -49,6 +49,8 @@ type EcoClawPluginConfig = {
   debugTapProviderTraffic?: boolean;
   debugTapPath?: string;
   responseRootLinkEnabled?: boolean;
+  responseRootFirstTurnOnly?: boolean;
+  responseRootFirstTurnMode?: "parent-id-only" | "user-only";
   responseRootMinInstructionChars?: number;
   responseRootPrefixMaxChars?: number;
   responseRootMatchMinRatio?: number;
@@ -307,6 +309,8 @@ function normalizeConfig(raw: unknown): Required<Omit<EcoClawPluginConfig, "prox
     debugTapProviderTraffic: cfg.debugTapProviderTraffic ?? false,
     debugTapPath: cfg.debugTapPath ?? join(stateDir, "ecoclaw", "provider-traffic.jsonl"),
     responseRootLinkEnabled: cfg.responseRootLinkEnabled ?? true,
+    responseRootFirstTurnOnly: cfg.responseRootFirstTurnOnly ?? true,
+    responseRootFirstTurnMode: cfg.responseRootFirstTurnMode ?? "parent-id-only",
     responseRootMinInstructionChars: Math.max(64, cfg.responseRootMinInstructionChars ?? 1200),
     responseRootPrefixMaxChars: Math.max(128, cfg.responseRootPrefixMaxChars ?? 6000),
     responseRootMatchMinRatio: Math.min(1, Math.max(0.1, cfg.responseRootMatchMinRatio ?? 0.7)),
@@ -361,10 +365,10 @@ function extractInputText(input: any): string {
   return "";
 }
 
-function getDeveloperAndLastUser(input: any): { developerText: string; userItem: any } | null {
-  if (!Array.isArray(input) || input.length < 2) return null;
+function getStrictDeveloperUserFirstTurn(input: any): { developerText: string; userItem: any } | null {
+  if (!Array.isArray(input) || input.length !== 2) return null;
   const first = input[0];
-  const last = input[input.length - 1];
+  const last = input[1];
   if (!first || typeof first !== "object" || String((first as any).role) !== "developer") return null;
   if (!last || typeof last !== "object" || String((last as any).role) !== "user") return null;
   const developerText =
@@ -578,11 +582,16 @@ async function startEmbeddedResponsesProxy(
       }
       const instructions = normalizeText(String(payload?.instructions ?? ""));
       const inputText = normalizeText(extractInputText(payload?.input));
-      const devAndUser = getDeveloperAndLastUser(payload?.input);
+      const devAndUser = getStrictDeveloperUserFirstTurn(payload?.input);
+      const firstTurnCandidate = Boolean(devAndUser);
       const developerText = normalizeText(devAndUser?.developerText ?? "");
       const sigSource = developerText || instructions;
       const sig = sha256Hex(`${upstream.baseUrl}|${upstreamModel || model}|${sigSource}`);
       const hasPrev = typeof payload?.previous_response_id === "string" && payload.previous_response_id.length > 0;
+      const shouldAttemptRootLink =
+        cfg.responseRootLinkEnabled &&
+        !hasPrev &&
+        (!cfg.responseRootFirstTurnOnly || firstTurnCandidate);
       logger.info(
         `[ecoclaw] proxy request model=${model || "unknown"} upstreamModel=${upstreamModel || "unknown"} hasPrev=${hasPrev ? "yes" : "no"} instrChars=${instructions.length}`,
       );
@@ -596,6 +605,8 @@ async function startEmbeddedResponsesProxy(
           instructionsChars: instructions.length,
           inputChars: inputText.length,
           devUserDetected: Boolean(devAndUser),
+          firstTurnCandidate,
+          responseRootFirstTurnOnly: cfg.responseRootFirstTurnOnly,
           developerChars: developerText.length,
           rootSig: sig,
           rootStateExistsBefore: rootStateBySig.has(sig),
@@ -606,7 +617,7 @@ async function startEmbeddedResponsesProxy(
         await appendFile(cfg.debugTapPath, `${JSON.stringify(debugRecord)}\n`, "utf8");
       }
       let injectedFromRoot = false;
-      if (cfg.responseRootLinkEnabled && !hasPrev) {
+      if (shouldAttemptRootLink) {
         let state = rootStateBySig.get(sig);
         if (
           !state &&
@@ -656,10 +667,15 @@ async function startEmbeddedResponsesProxy(
         }
         if (state?.rootResponseId && devAndUser) {
           payload.previous_response_id = state.rootResponseId;
-          payload.input = [devAndUser.userItem];
+          if (cfg.responseRootFirstTurnMode === "user-only") {
+            // Aggressive token-saving mode: keep only first-turn user item after linking to root.
+            payload.input = [devAndUser.userItem];
+          }
           injectedFromRoot = true;
-          logger.info(`[ecoclaw] proxy injected previous_response_id model=${model} mode=developer-root`);
-        } else if (state?.rootResponseId && instructions.length >= cfg.responseRootMinInstructionChars) {
+          logger.info(
+            `[ecoclaw] proxy injected previous_response_id model=${model} mode=${cfg.responseRootFirstTurnMode}`,
+          );
+        } else if (!cfg.responseRootFirstTurnOnly && state?.rootResponseId && instructions.length >= cfg.responseRootMinInstructionChars) {
           const ratio = commonPrefixRatio(inputText, state.prefixSample);
           if (ratio >= cfg.responseRootMatchMinRatio) {
             payload.previous_response_id = state.rootResponseId;
@@ -680,7 +696,9 @@ async function startEmbeddedResponsesProxy(
       });
       const txt = await upstreamResp.text();
       const responseId = extractResponseIdFromAnyText(txt);
-      if (!hasPrev && !injectedFromRoot && responseId && sigSource.length >= cfg.responseRootMinInstructionChars) {
+      const shouldCaptureRoot =
+        !cfg.responseRootFirstTurnOnly || firstTurnCandidate;
+      if (!hasPrev && !injectedFromRoot && responseId && sigSource.length >= cfg.responseRootMinInstructionChars && shouldCaptureRoot) {
         const nowIso = new Date().toISOString();
         rootStateBySig.set(sig, {
           rootResponseId: responseId,
