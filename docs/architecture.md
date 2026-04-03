@@ -12,15 +12,16 @@ L1 focuses on deterministic, data-driven runtime decisions:
 
 Physical package layout now mirrors the semantic layers:
 
-- `packages/layers/data`
+- `packages/layers/context`
 - `packages/layers/decision`
 - `packages/layers/execution`
 - `packages/layers/orchestration`
 
-### Data Layer
+### Context Layer
 
-- `module-memory-state`: short/medium-term session state snapshots.
+- `module-context-state`: lightweight current-session context state placeholder.
 - `module-retrieval`: reserved boundary for future retrieval wiring; currently a light metadata placeholder.
+- Future direction: build editable session/branch/message views from immutable storage.
 
 ### Decision Layer
 
@@ -37,7 +38,7 @@ Physical package layout now mirrors the semantic layers:
 
 ### Orchestration Layer
 
-- `layer-orchestration`: OpenClaw logical/physical session routing, optional policy-driven fork, persistence.
+- `layer-orchestration`: OpenClaw logical/physical session routing, draft materialization, optional provider-specific fork/replay, persistence writes.
 
 ### Observability (cross-cutting, not a standalone package)
 
@@ -76,8 +77,10 @@ without requiring OpenClaw core source patches.
 EcoClaw persistence (filesystem-first):
 
 - `<stateDir>/ecoclaw/sessions/<sessionId>/turns.jsonl`
+- `<stateDir>/ecoclaw/sessions/<sessionId>/branches.jsonl`
+- `<stateDir>/ecoclaw/sessions/<sessionId>/messages.jsonl`
 - `<stateDir>/ecoclaw/sessions/<sessionId>/meta.json`
-- `<stateDir>/ecoclaw/sessions/<sessionId>/summary.json`
+- `<stateDir>/ecoclaw/sessions/<sessionId>/summary.json` (legacy transitional path)
 
 `stateDir` comes from connector host runtime (OpenClaw plugin config).
 

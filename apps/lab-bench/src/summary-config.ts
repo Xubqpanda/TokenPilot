@@ -14,9 +14,5 @@ export function resolveSummaryModuleConfig(
     ...base,
     summaryPrompt: readEnv("ECOCLAW_SUMMARY_PROMPT") ?? base.summaryPrompt,
     summaryPromptPath: readEnv("ECOCLAW_SUMMARY_PROMPT_PATH") ?? base.summaryPromptPath,
-    resumePrefixPrompt:
-      readEnv("ECOCLAW_RESUME_PREFIX_PROMPT") ?? base.resumePrefixPrompt,
-    resumePrefixPromptPath:
-      readEnv("ECOCLAW_RESUME_PREFIX_PROMPT_PATH") ?? base.resumePrefixPromptPath,
   };
 }

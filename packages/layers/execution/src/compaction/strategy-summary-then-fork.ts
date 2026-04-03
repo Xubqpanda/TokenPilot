@@ -1,5 +1,5 @@
-import type { SummaryArtifact } from "../summary/index.js";
 import type {
+  CompactionArtifact,
   CompactionPlan,
   CompactionStrategyContext,
   RecentMessage,
@@ -25,12 +25,12 @@ export function buildSummaryThenForkPlan(
     triggerReasons,
   } = params;
 
-  const summaryArtifact = artifact as Partial<SummaryArtifact>;
-  const summaryText = clipText(summaryArtifact.summaryText);
+  const compactionArtifact = artifact as Partial<CompactionArtifact>;
+  const summaryText = clipText(compactionArtifact.summaryText);
   if (!summaryText) return null;
 
-  const resumePrefixPrompt = clipText(summaryArtifact.resumePrefixPrompt);
-  const seedSummary = [resumePrefixPrompt, summaryText].filter(Boolean).join("\n\n");
+  const resumePrefixPrompt = clipText(compactionArtifact.resumePrefixPrompt);
+  const seedSummary = clipText(compactionArtifact.seedSummary) || [resumePrefixPrompt, summaryText].filter(Boolean).join("\n\n");
   if (!seedSummary) return null;
 
   const stamp = idFactory();
@@ -41,11 +41,11 @@ export function buildSummaryThenForkPlan(
     strategy: "summary_then_fork",
     targetBranch: `compact-${stamp}`,
     seedMode: "summary",
-    summaryId: clipText(summaryArtifact.summaryId) || undefined,
+    compactionId: clipText(compactionArtifact.compactionId) || undefined,
     summaryText,
     summaryChars: summaryText.length,
     resumePrefixPrompt,
-    recentMessages: normalizeRecentMessages(summaryArtifact.recentMessages),
+    recentMessages: normalizeRecentMessages(compactionArtifact.recentMessages),
     seedSummary,
     triggerReasons: normalizeTriggerReasons(triggerReasons),
   };

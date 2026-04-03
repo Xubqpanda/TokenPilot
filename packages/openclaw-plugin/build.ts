@@ -1,4 +1,6 @@
 import { build } from "esbuild";
+import { copyFile, mkdir } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
 async function main() {
   await build({
@@ -12,6 +14,19 @@ async function main() {
     minify: false,
     logLevel: "info",
   });
+
+  const workerSrc = join(
+    process.cwd(),
+    "..",
+    "layers",
+    "execution",
+    "src",
+    "reduction",
+    "semantic-llmlingua2-worker.py",
+  );
+  const workerDest = join(process.cwd(), "dist", "semantic-llmlingua2-worker.py");
+  await mkdir(dirname(workerDest), { recursive: true });
+  await copyFile(workerSrc, workerDest);
 }
 
 main().catch((err) => {

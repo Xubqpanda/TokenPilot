@@ -1,168 +1,163 @@
-import {
-  createStabilizerModule,
-  createCompactionModule,
-  createSummaryModule,
-  createReductionModule,
-} from "@ecoclaw/layer-execution";
-import { createTaskRouterModule, createPolicyModule, createDecisionLedgerModule } from "@ecoclaw/layer-decision";
-import { createMemoryStateModule } from "@ecoclaw/layer-data";
-import { createObservationSegment } from "@ecoclaw/kernel";
-import { openaiAdapter } from "@ecoclaw/provider-openai";
-import { createOpenClawConnector } from "@ecoclaw/layer-orchestration";
-import { resolveSummaryModuleConfig } from "./summary-config.js";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-async function main() {
-  const connector = createOpenClawConnector({
-    modules: [
-      createStabilizerModule({ minPrefixChars: 10 }),
-      createPolicyModule({ summaryTriggerStableChars: 20 }),
-      createTaskRouterModule({
-        enabled: true,
-        tierRoutes: {
-          simple: { provider: "openai", model: "gpt-5-mini" },
-          complex: { provider: "openai", model: "gpt-5" },
-          reasoning: { provider: "openai", model: "o3" },
-        },
-      }),
-      createDecisionLedgerModule(),
-      createMemoryStateModule({ maxSummaryChars: 600 }),
-      createCompactionModule(),
-      createSummaryModule(resolveSummaryModuleConfig({ idleTriggerMinutes: 50 })),
-      createReductionModule({ maxToolChars: 300 }),
-    ],
-    adapters: { openai: openaiAdapter },
-    stateDir: "/tmp/ecoclaw-lab-state",
-    routing: {
-      autoForkOnPolicy: true,
-      physicalSessionPrefix: "phy",
-    },
-    observability: {
-      eventTracePath: "/tmp/ecoclaw-lab-state/ecoclaw/event-trace.jsonl",
-    },
-  });
+const port = Number(process.env.ECOCLAW_LAB_PORT ?? 7777);
+const here = dirname(fileURLToPath(import.meta.url));
+const publicDir = join(here, "..", "public");
+const dashboardDataUrl = new URL("./dashboard-data.ts", import.meta.url).href;
+const editorTransformsUrl = new URL("./editor-transforms.ts", import.meta.url).href;
 
-  const result = await connector.onLlmCall(
-    {
-      sessionId: "tui-logical-s1",
-      sessionMode: "single",
-      provider: "openai",
-      model: "gpt-5",
-      prompt: "Summarize",
-      segments: [
-        { id: "a", kind: "stable", text: "system prompt stable block", priority: 1 },
-        { id: "b", kind: "volatile", text: "latest user turn", priority: 10 },
-      ],
-      budget: { maxInputTokens: 8000, reserveOutputTokens: 1000 },
-      metadata: {
-        logicalSessionId: "tui-logical-s1",
-      },
-    },
-    async () => ({
-      content: "x".repeat(500),
-      usage: {
-        providerRaw: {
-          input_tokens: 200,
-          output_tokens: 100,
-          prompt_tokens_details: { cached_tokens: 128 },
-        },
-      },
-    }),
-  );
+type DashboardDataModule = typeof import("./dashboard-data.js");
+type EditorTransformsModule = typeof import("./editor-transforms.js");
 
-  const result2 = await connector.onLlmCall(
-    {
-      sessionId: "tui-logical-s1",
-      sessionMode: "single",
-      provider: "openai",
-      model: "gpt-5",
-      prompt: "Continue with concise next steps.",
-      segments: [
-        { id: "a2", kind: "stable", text: "system prompt stable block", priority: 1 },
-        { id: "b2", kind: "volatile", text: "latest user turn", priority: 10 },
-        createObservationSegment({
-          id: "tool-json-1",
-          text: JSON.stringify(
-            {
-              files: [
-                { path: "src/app.ts", lines: 120, status: "modified" },
-                { path: "src/cache.ts", lines: 420, status: "unchanged" },
-              ],
-              summary: "workspace diff snapshot",
-              stdout: "scan complete",
-            },
-            null,
-            2,
-          ),
-          source: "lab-bench",
-          toolName: "workspace-scan",
-          payloadKind: "json",
-        }),
-      ],
-      budget: { maxInputTokens: 8000, reserveOutputTokens: 1000 },
-      metadata: {
-        logicalSessionId: "tui-logical-s1",
-        turnObservations: [
-          {
-            id: "tool-stdout-1",
-            text: [
-              "stdout:",
-              "scan start",
-              "checked src/index.ts",
-              "checked src/cache.ts",
-              "checked src/router.ts",
-              "checked src/ui.ts",
-              "checked docs/architecture.md",
-              "checked README.md",
-              "scan complete",
-            ].join("\n"),
-            payloadKind: "stdout",
-            toolName: "workspace-scan",
-            source: "metadata.turnObservations",
-          },
-        ],
-      },
-    },
-    async () => ({
-      content: "y".repeat(300),
-      usage: {
-        providerRaw: {
-          input_tokens: 180,
-          output_tokens: 80,
-          prompt_tokens_details: { cached_tokens: 96 },
-        },
-      },
-    }),
-  );
+let dashboardDataPromise: Promise<DashboardDataModule> | null = null;
+let editorTransformsPromise: Promise<EditorTransformsModule> | null = null;
 
-  await connector.writeSessionSummary("tui-logical-s1", "This is a sample persisted summary.", "bench");
-
-  console.log("Pipeline sample done", result.usage);
-  console.log("Second turn usage", result2.usage);
-  console.log("Logical->Physical:", connector.getPhysicalSessionId("tui-logical-s1"));
-  console.log(
-    "Event types:",
-    (
-      (result.metadata as Record<string, unknown>)?.ecoclawEvents as Array<{ type: string }> | undefined
-    )?.map((e) => e.type) ?? [],
-  );
-  console.log(
-    "FinalContext event types:",
-    (
-      (result.metadata as Record<string, any>)?.ecoclawTrace?.finalContext?.metadata?.ecoclawEvents as
-        | Array<{ type: string }>
-        | undefined
-    )?.map((e) => e.type) ?? [],
-  );
-  console.log("Summary meta:", (result.metadata as Record<string, unknown>)?.summary);
-  console.log(
-    "FinalContext stabilizer/policy:",
-    (result.metadata as Record<string, any>)?.ecoclawTrace?.finalContext?.metadata?.stabilizer,
-    (result.metadata as Record<string, any>)?.ecoclawTrace?.finalContext?.metadata?.policy,
-  );
-  console.log("State root:", connector.getStateRootDir());
+function loadDashboardData(): Promise<DashboardDataModule> {
+  dashboardDataPromise ??= import(dashboardDataUrl) as Promise<DashboardDataModule>;
+  return dashboardDataPromise;
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exitCode = 1;
+function loadEditorTransforms(): Promise<EditorTransformsModule> {
+  editorTransformsPromise ??= import(editorTransformsUrl) as Promise<EditorTransformsModule>;
+  return editorTransformsPromise;
+}
+
+function send(res: ServerResponse, status: number, body: string, contentType: string) {
+  res.writeHead(status, {
+    "content-type": contentType,
+    "cache-control": "no-store",
+  });
+  res.end(body);
+}
+
+function sendJson(res: ServerResponse, status: number, payload: unknown) {
+  send(res, status, JSON.stringify(payload, null, 2), "application/json; charset=utf-8");
+}
+
+function notFound(res: ServerResponse) {
+  send(res, 404, "Not found", "text/plain; charset=utf-8");
+}
+
+async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+  }
+  const raw = Buffer.concat(chunks).toString("utf8").trim();
+  if (!raw) return {};
+  return JSON.parse(raw) as Record<string, unknown>;
+}
+
+const server = createServer(async (req, res) => {
+  try {
+    const url = new URL(req.url ?? "/", `http://${req.headers.host ?? `127.0.0.1:${port}`}`);
+
+    if (req.method === "GET" && url.pathname === "/") {
+      send(res, 200, await readFile(join(publicDir, "index.html"), "utf8"), "text/html; charset=utf-8");
+      return;
+    }
+    if (req.method === "GET" && url.pathname === "/styles.css") {
+      send(res, 200, await readFile(join(publicDir, "styles.css"), "utf8"), "text/css; charset=utf-8");
+      return;
+    }
+    if (req.method === "GET" && url.pathname === "/app.js") {
+      send(res, 200, await readFile(join(publicDir, "app.js"), "utf8"), "application/javascript; charset=utf-8");
+      return;
+    }
+    if (req.method === "GET" && url.pathname === "/api/overview") {
+      const { loadOverview } = await loadDashboardData();
+      sendJson(res, 200, await loadOverview());
+      return;
+    }
+    if (req.method === "GET" && url.pathname === "/api/session-turns") {
+      const sessionId = url.searchParams.get("sessionId") ?? "";
+      if (!sessionId) {
+        sendJson(res, 400, { error: "sessionId is required" });
+        return;
+      }
+      const { loadSessionTurns } = await loadDashboardData();
+      sendJson(res, 200, await loadSessionTurns(sessionId));
+      return;
+    }
+    if (req.method === "GET" && url.pathname === "/api/turn") {
+      const traceId = url.searchParams.get("traceId") ?? "";
+      if (!traceId) {
+        sendJson(res, 400, { error: "traceId is required" });
+        return;
+      }
+      const { loadTurnDetail } = await loadDashboardData();
+      const detail = await loadTurnDetail(traceId);
+      if (!detail) {
+        sendJson(res, 404, { error: "turn not found" });
+        return;
+      }
+      sendJson(res, 200, detail);
+      return;
+    }
+    if (req.method === "POST" && url.pathname === "/api/branch-action") {
+      const body = await readJsonBody(req);
+      const traceId = String(body.traceId ?? "").trim();
+      const action = String(body.action ?? "").trim();
+      if (!traceId) {
+        sendJson(res, 400, { error: "traceId is required" });
+        return;
+      }
+      if (action !== "fork" && action !== "revert") {
+        sendJson(res, 400, { error: "action must be fork or revert" });
+        return;
+      }
+      const { createManualBranchAction } = await loadDashboardData();
+      sendJson(res, 200, await createManualBranchAction(traceId, action));
+      return;
+    }
+    if (req.method === "POST" && url.pathname === "/api/editor/transform") {
+      const body = await readJsonBody(req);
+      const mode = String(body.mode ?? "").trim();
+      const blocks = body.blocks;
+      if (!Array.isArray(blocks) || blocks.length === 0) {
+        sendJson(res, 400, { error: "blocks must be a non-empty array" });
+        return;
+      }
+      if (mode !== "summary" && mode !== "reduction") {
+        sendJson(res, 400, { error: "mode must be summary or reduction" });
+        return;
+      }
+      const { buildReductionPreview, buildSummaryPreview } = await loadEditorTransforms();
+      sendJson(res, 200, mode === "summary" ? buildSummaryPreview(blocks) : buildReductionPreview(blocks));
+      return;
+    }
+    if (req.method === "POST" && url.pathname === "/api/editor/apply-draft") {
+      const body = await readJsonBody(req);
+      const traceId = String(body.traceId ?? "").trim();
+      const draftBlocks = body.draftBlocks;
+      if (!traceId) {
+        sendJson(res, 400, { error: "traceId is required" });
+        return;
+      }
+      if (!Array.isArray(draftBlocks) || draftBlocks.length === 0) {
+        sendJson(res, 400, { error: "draftBlocks must be a non-empty array" });
+        return;
+      }
+      const { applyDraftPlan } = await loadDashboardData();
+      sendJson(res, 200, await applyDraftPlan(traceId, draftBlocks as never[]));
+      return;
+    }
+
+    if (req.method !== "GET" && req.method !== "POST") {
+      send(res, 405, "Method not allowed", "text/plain; charset=utf-8");
+      return;
+    }
+
+    notFound(res);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    sendJson(res, 500, { error: message });
+  }
+});
+
+server.listen(port, "127.0.0.1", () => {
+  console.log(`[ecoclaw/lab-bench] dashboard listening on http://127.0.0.1:${port}`);
 });

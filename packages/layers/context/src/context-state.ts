@@ -6,8 +6,8 @@ import {
   type RuntimeModule,
 } from "@ecoclaw/kernel";
 
-type MemoryStateEntry = {
-  seedText: string;
+type ContextStateEntry = {
+  materializedText: string;
   summaryText: string;
   recentMessages?: Array<{
     index?: number;
@@ -19,16 +19,16 @@ type MemoryStateEntry = {
   source: string;
 };
 
-export type MemoryStateModuleConfig = {
+export type ContextStateModuleConfig = {
   maxSummaryChars?: number;
 };
 
-export function createMemoryStateModule(cfg: MemoryStateModuleConfig = {}): RuntimeModule {
+export function createContextStateModule(cfg: ContextStateModuleConfig = {}): RuntimeModule {
   const maxSummaryChars = Math.max(200, cfg.maxSummaryChars ?? 2000);
-  const stateBySession = new Map<string, MemoryStateEntry>();
+  const stateBySession = new Map<string, ContextStateEntry>();
 
   return {
-    name: "module-memory-state",
+    name: "module-context-state",
     async beforeBuild(ctx) {
       const state = stateBySession.get(ctx.sessionId);
       if (!state) return ctx;
@@ -36,21 +36,21 @@ export function createMemoryStateModule(cfg: MemoryStateModuleConfig = {}): Runt
         ...ctx,
         metadata: {
           ...(ctx.metadata ?? {}),
-          memoryState: {
-            hasSeed: true,
+          contextState: {
+            available: true,
             updatedAt: state.updatedAt,
             source: state.source,
           },
         },
       };
       return appendContextEvent(nextCtx, {
-        type: ECOCLAW_EVENT_TYPES.MEMORY_SEED_AVAILABLE,
-        source: "module-memory-state",
+        type: ECOCLAW_EVENT_TYPES.CONTEXT_STATE_AVAILABLE,
+        source: "module-context-state",
         at: new Date().toISOString(),
         payload: {
           updatedAt: state.updatedAt,
           source: state.source,
-          summaryPreview: state.seedText.slice(0, 200),
+          contextPreview: state.materializedText.slice(0, 200),
           recentMessageCount: state.recentMessages?.length ?? 0,
         },
       });
@@ -76,10 +76,10 @@ export function createMemoryStateModule(cfg: MemoryStateModuleConfig = {}): Runt
             assistant?: string;
           }>)
         : [];
-      const seedText = summaryText;
+      const materializedText = summaryText;
       const updatedAt = new Date().toISOString();
       stateBySession.set(ctx.sessionId, {
-        seedText,
+        materializedText,
         summaryText,
         recentMessages,
         updatedAt,
@@ -90,22 +90,22 @@ export function createMemoryStateModule(cfg: MemoryStateModuleConfig = {}): Runt
           ...result,
           metadata: {
             ...(result.metadata ?? {}),
-            memoryState: {
-              hasSeed: true,
+            contextState: {
+              available: true,
               updatedAt,
               source: "module-summary",
             },
           },
         },
         {
-          type: ECOCLAW_EVENT_TYPES.MEMORY_STATE_UPDATED,
-          source: "module-memory-state",
+          type: ECOCLAW_EVENT_TYPES.CONTEXT_STATE_UPDATED,
+          source: "module-context-state",
           at: updatedAt,
           payload: {
             updatedAt,
             source: "module-summary",
             summaryChars: summaryText.length,
-            seedChars: seedText.length,
+            materializedChars: materializedText.length,
             recentMessageCount: recentMessages.length,
           },
         },

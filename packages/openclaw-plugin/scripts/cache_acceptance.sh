@@ -12,6 +12,7 @@ MAX_ATTEMPTS="${MAX_ATTEMPTS:-6}"
 CACHE_THRESHOLD="${CACHE_THRESHOLD:-9000}"
 SLEEP_SECONDS="${SLEEP_SECONDS:-5}"
 OPENCLAW_BIN="${OPENCLAW_BIN:-openclaw}"
+RUN_AT="$(date -Iseconds)"
 
 mkdir -p "$OUT_DIR" "$SESSION_DIR"
 
@@ -27,6 +28,12 @@ case "$MODE" in
     exit 2
     ;;
 esac
+
+SUMMARY_MD="$OUT_DIR/summary.md"
+SUMMARY_JSON="$OUT_DIR/summary.json"
+declare -a ACCEPTED_FILES=()
+declare -a NOISY_FILES=()
+declare -a ALL_RESULT_FILES=()
 
 extract_json() {
   sed -n '/^{/,$p'
@@ -117,6 +124,13 @@ NODE
   } >> "$SUMMARY_MD"
 }
 
+join_array_lines() {
+  local -n ref="$1"
+  if [[ "${#ref[@]}" -gt 0 ]]; then
+    printf '%s\n' "${ref[@]}"
+  fi
+}
+
 run_multi_once() {
   local out="$1"
   : > "$out"
@@ -185,6 +199,7 @@ collect_clean_runs() {
   while [[ "$clean" -lt "$TARGET_CLEAN_RUNS" && "$attempt" -lt "$MAX_ATTEMPTS" ]]; do
     attempt=$((attempt + 1))
     local out="$OUT_DIR/${kind}_${attempt}_$(date +%s).jsonl"
+    ALL_RESULT_FILES+=("$out")
     echo "[ecoclaw acceptance] kind=$kind attempt=$attempt"
     if [[ "$kind" == "multi" ]]; then
       run_multi_once "$out"
@@ -196,12 +211,14 @@ collect_clean_runs() {
     ok=$(is_clean_run "$kind" "$out")
     if [[ "$ok" == "1" ]]; then
       clean=$((clean + 1))
+      ACCEPTED_FILES+=("$out")
       echo "[ecoclaw acceptance] clean run accepted: $out"
       {
         echo "- accepted: \`$out\`"
         echo
       } >> "$SUMMARY_MD"
     else
+      NOISY_FILES+=("$out")
       echo "[ecoclaw acceptance] noisy run kept for inspection: $out"
       {
         echo "- noisy: \`$out\`"
@@ -216,7 +233,6 @@ collect_clean_runs() {
   fi
 }
 
-SUMMARY_MD="$OUT_DIR/summary.md"
 {
   echo "# EcoClaw Cache Acceptance"
   echo
@@ -236,5 +252,87 @@ if [[ "$MODE" == "all" || "$MODE" == "fork" ]]; then
   collect_clean_runs fork
 fi
 
+accepted_joined=$(join_array_lines ACCEPTED_FILES)
+noisy_joined=$(join_array_lines NOISY_FILES)
+all_joined=$(join_array_lines ALL_RESULT_FILES)
+
+ACCEPTED_JOINED="$accepted_joined" \
+NOISY_JOINED="$noisy_joined" \
+ALL_JOINED="$all_joined" \
+node - "$MODE" "$TARGET_CLEAN_RUNS" "$MAX_ATTEMPTS" "$CACHE_THRESHOLD" "$FIXTURE" "$SESSION_DIR" "$RUN_AT" "$SUMMARY_JSON" <<'NODE'
+const fs = require("fs");
+
+const mode = process.argv[2];
+const targetCleanRuns = Number(process.argv[3]);
+const maxAttempts = Number(process.argv[4]);
+const cacheThreshold = Number(process.argv[5]);
+const fixture = process.argv[6];
+const sessionDir = process.argv[7];
+const runAt = process.argv[8];
+const summaryJson = process.argv[9];
+
+const splitList = (raw) =>
+  String(raw || "")
+    .split(/\n+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const acceptedFiles = splitList(process.env.ACCEPTED_JOINED);
+const noisyFiles = splitList(process.env.NOISY_JOINED);
+const allFiles = splitList(process.env.ALL_JOINED);
+
+const summarizeFile = (file) => {
+  const rows = fs
+    .readFileSync(file, "utf8")
+    .trim()
+    .split(/\n+/)
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+  return {
+    file,
+    rowCount: rows.length,
+    rows: rows.map((row) => ({
+      group: row.group,
+      sessionId: row.sessionId,
+      usage: row.usage || {},
+      provider: row.provider ?? null,
+      model: row.model ?? null,
+    })),
+  };
+};
+
+const expectedAccepted = mode === "all" ? targetCleanRuns * 2 : targetCleanRuns;
+
+const summary = {
+  module: "cache",
+  runAt,
+  mode,
+  requiredValidatedKeys: ["enoughCleanRuns"],
+  config: {
+    targetCleanRuns,
+    maxAttempts,
+    cacheThreshold,
+    fixture,
+    sessionDir,
+  },
+  validated: {
+    enoughCleanRuns: acceptedFiles.length >= expectedAccepted,
+  },
+  counts: {
+    accepted: acceptedFiles.length,
+    noisy: noisyFiles.length,
+    total: allFiles.length,
+  },
+  acceptedFiles,
+  noisyFiles,
+  allFiles,
+  acceptedRuns: acceptedFiles.map(summarizeFile),
+  noisyRuns: noisyFiles.map(summarizeFile),
+};
+
+fs.writeFileSync(summaryJson, JSON.stringify(summary, null, 2));
+NODE
+
 echo "acceptance outputs: $OUT_DIR"
 echo "summary: $SUMMARY_MD"
+echo "summary json: $SUMMARY_JSON"

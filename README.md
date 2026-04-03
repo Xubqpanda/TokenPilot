@@ -10,19 +10,19 @@ improve token efficiency while keeping task quality stable.
 - Policy-owned summary / compaction triggers with execution-side handoff artifacts
 - Runtime decision dashboard (replaces the old cache-tree-only view)
 - Expanded `/ecoclaw` command set (`help/status/cache/session` controls)
-- Full event tracing for Data / Decision / Execution / Orchestration analysis
+- Full event tracing for Context / Decision / Execution / Orchestration analysis
 
 ## High-Level Framework
 
 EcoClaw is organized as semantic layers:
 
 - `packages/kernel`: runtime context, pipeline contracts, event bus
-- `packages/layers/data`: memory-state and retrieval
+- `packages/layers/context`: context-state, retrieval, and future session-view builders
 - `packages/layers/decision`: policy, task-router, decision-ledger
 - `packages/layers/execution`: stabilizer, compaction, summary, reduction
 - `packages/layers/orchestration`: OpenClaw connector and session topology
 - `packages/providers/*`: provider-specific usage normalization and prompt annotation
-- `packages/storage/fs`: filesystem persistence for traces and session state
+- `packages/storage/fs`: filesystem persistence for traces, turns, branches, and messages
 - `packages/openclaw-plugin`: deployable OpenClaw plugin entry
 - `apps/lab-bench`: benchmark harness and runtime dashboard
 
@@ -87,6 +87,22 @@ The dashboard focuses on:
 - Per-turn token usage (input/output/cacheRead/net)
 - Layer signals and module execution traces
 - Compaction ROI windows (pre/post turn comparison)
+- Initial vs final context segment inspection
+- Stable-prefix / tail visualization for cache-oriented observation
+
+Useful overrides:
+
+```bash
+ECOCLAW_LAB_PORT=7781 \
+ECOCLAW_STATE_ROOTS="$HOME/.openclaw/ecoclaw-plugin-state/ecoclaw:/tmp/ecoclaw-lab-state/ecoclaw" \
+corepack pnpm --filter @ecoclaw/lab-bench dev
+```
+
+Current scope of the dashboard:
+
+- observation only
+- reads trace + provider tap files from local state roots
+- does not yet write policy overrides or mutate runtime context
 
 ## Current Scope
 

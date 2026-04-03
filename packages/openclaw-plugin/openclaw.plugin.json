@@ -55,6 +55,174 @@
         "type": "number",
         "default": 17667,
         "description": "Embedded responses proxy listen port."
+      },
+      "compaction": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Compaction and summary controls for the shadow runtime pipeline.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "autoForkOnPolicy": {
+            "type": "boolean",
+            "default": true,
+            "description": "Apply generated compaction plans by forking a new shadow physical session."
+          },
+          "summaryGenerationMode": {
+            "type": "string",
+            "enum": ["llm_full_context", "heuristic"],
+            "default": "heuristic"
+          },
+          "summaryFallbackToHeuristic": {
+            "type": "boolean",
+            "default": true
+          },
+          "summaryMaxOutputTokens": {
+            "type": "number",
+            "description": "Max output tokens for summary sidecar generation."
+          },
+          "includeAssistantReply": {
+            "type": "boolean",
+            "default": true
+          },
+          "summaryPrompt": {
+            "type": "string",
+            "description": "Inline summary prompt override used by the summary module."
+          },
+          "summaryPromptPath": {
+            "type": "string",
+            "description": "Path to a custom summary prompt file."
+          },
+          "resumePrefixPrompt": {
+            "type": "string",
+            "description": "Inline resume-prefix prompt override used when seeding compacted branches."
+          },
+          "resumePrefixPromptPath": {
+            "type": "string",
+            "description": "Path to a custom resume-prefix prompt file."
+          },
+          "compactionCooldownTurns": {
+            "type": "number",
+            "description": "Cooldown turns after a compaction request before another request is allowed."
+          }
+        }
+      },
+      "handoff": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Task handoff generation controls for future sub-agent or continuation workflows.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "handoffGenerationMode": {
+            "type": "string",
+            "enum": ["llm_full_context", "heuristic"],
+            "default": "heuristic"
+          },
+          "handoffFallbackToHeuristic": {
+            "type": "boolean",
+            "default": true
+          },
+          "handoffMaxOutputTokens": {
+            "type": "number",
+            "description": "Max output tokens for handoff sidecar generation."
+          },
+          "includeAssistantReply": {
+            "type": "boolean",
+            "default": true
+          },
+          "handoffPrompt": {
+            "type": "string",
+            "description": "Inline handoff prompt override used by the handoff module."
+          },
+          "handoffPromptPath": {
+            "type": "string",
+            "description": "Path to a custom handoff prompt file."
+          },
+          "handoffCooldownTurns": {
+            "type": "number",
+            "description": "Cooldown turns after a handoff request before another request is allowed."
+          }
+        }
+      },
+      "semanticReduction": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Optional semantic LLMLingua2 reduction settings for after-call compression.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "pythonBin": {
+            "type": "string",
+            "description": "Python executable used to run the LLMLingua2 worker."
+          },
+          "timeoutMs": {
+            "type": "number",
+            "default": 120000
+          },
+          "llmlinguaModelPath": {
+            "type": "string",
+            "description": "Local path to the LLMLingua2 token-classification model."
+          },
+          "targetRatio": {
+            "type": "number",
+            "description": "Target semantic keep ratio between 0.05 and 0.95."
+          },
+          "minInputChars": {
+            "type": "number",
+            "description": "Minimum response length before semantic reduction is attempted."
+          },
+          "minSavedChars": {
+            "type": "number",
+            "description": "Minimum saved characters required to accept semantic reduction."
+          },
+          "preselectRatio": {
+            "type": "number",
+            "description": "Chunk preselection ratio before LLMLingua2 compression."
+          },
+          "maxChunkChars": {
+            "type": "number",
+            "description": "Chunk size used by semantic reduction worker."
+          },
+          "embedding": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "provider": {
+                "type": "string",
+                "enum": ["local", "api", "none"],
+                "default": "none"
+              },
+              "modelPath": {
+                "type": "string",
+                "description": "Local path to the embedding model when provider=local."
+              },
+              "apiBaseUrl": {
+                "type": "string",
+                "description": "OpenAI-compatible embeddings base URL when provider=api."
+              },
+              "apiKey": {
+                "type": "string",
+                "sensitive": true,
+                "description": "API key for embeddings when provider=api."
+              },
+              "apiModel": {
+                "type": "string",
+                "description": "Embedding model name when provider=api."
+              },
+              "requestTimeoutMs": {
+                "type": "number",
+                "default": 30000
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -87,6 +255,15 @@
     },
     "proxyPort": {
       "label": "Proxy Port"
+    },
+    "compaction": {
+      "label": "Compaction"
+    },
+    "handoff": {
+      "label": "Handoff"
+    },
+    "semanticReduction": {
+      "label": "Semantic Reduction"
     }
   }
 }

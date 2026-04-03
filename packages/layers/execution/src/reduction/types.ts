@@ -75,9 +75,40 @@ export type ReductionReportEntry = {
   touchedSegmentIds?: string[];
 };
 
+export type ReductionPassBreakdownEntry = {
+  id: ReductionPassId;
+  phase: ReductionPhase;
+  target: ReductionTarget;
+  order: number;
+  changed: boolean;
+  skippedReason?: string;
+  note?: string;
+  beforeChars: number;
+  afterChars: number;
+  savedChars: number;
+  savingsRatio: number;
+  cumulativeSavedChars: number;
+  touchedSegmentIds?: string[];
+};
+
+export type ReductionSummary = {
+  beforeChars: number;
+  afterChars: number;
+  savedChars: number;
+  savingsRatio: number;
+  changedPassCount: number;
+  skippedPassCount: number;
+  passCount: number;
+  topContributor: ReductionPassBreakdownEntry | null;
+  passBreakdown: ReductionPassBreakdownEntry[];
+  report: ReductionReportEntry[];
+};
+
 export type ReductionMetadata = {
   beforeCall?: ReductionReportEntry[];
   afterCall?: ReductionReportEntry[];
+  beforeCallSummary?: ReductionSummary;
+  afterCallSummary?: ReductionSummary;
 };
 
 export type ReductionModuleConfig = {
@@ -85,4 +116,29 @@ export type ReductionModuleConfig = {
   registry?: ReductionPassRegistry;
   maxToolChars?: number;
   strategy?: "rule" | "llmlingua2";
+  semanticLlmlingua2?: SemanticLlmlingua2Config;
+};
+
+export type SemanticEmbeddingProviderKind = "local" | "api" | "none";
+
+export type SemanticLlmlingua2EmbeddingConfig = {
+  provider?: SemanticEmbeddingProviderKind;
+  modelPath?: string;
+  apiBaseUrl?: string;
+  apiKey?: string;
+  apiModel?: string;
+  requestTimeoutMs?: number;
+};
+
+export type SemanticLlmlingua2Config = {
+  enabled?: boolean;
+  pythonBin?: string;
+  timeoutMs?: number;
+  modelPath?: string;
+  targetRatio?: number;
+  minInputChars?: number;
+  minSavedChars?: number;
+  preselectRatio?: number;
+  maxChunkChars?: number;
+  embedding?: SemanticLlmlingua2EmbeddingConfig;
 };

@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createDecisionLedgerModule, createPolicyModule } from "@ecoclaw/layer-decision";
-import { createMemoryStateModule } from "@ecoclaw/layer-data";
+import { createContextStateModule } from "@ecoclaw/layer-context";
 import {
   createStabilizerModule,
   createReductionModule,
   createSummaryModule,
   createCompactionModule,
+  createHandoffModule,
 } from "@ecoclaw/layer-execution";
 import { createOpenClawConnector } from "@ecoclaw/layer-orchestration";
 import { anthropicAdapter } from "@ecoclaw/provider-anthropic";
@@ -14,9 +15,10 @@ import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
 import { createServer } from "node:http";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { readdir, rm } from "node:fs/promises";
 import { readFile, mkdir, appendFile, writeFile } from "node:fs/promises";
-import type { RuntimeTurnContext, RuntimeTurnResult } from "@ecoclaw/kernel";
+import { ECOCLAW_EVENT_TYPES, type RuntimeTurnContext, type RuntimeTurnResult } from "@ecoclaw/kernel";
 
 type EcoClawPluginConfig = {
   enabled?: boolean;
@@ -28,6 +30,48 @@ type EcoClawPluginConfig = {
   debugTapPath?: string;
   proxyAutostart?: boolean;
   proxyPort?: number;
+  compaction?: {
+    enabled?: boolean;
+    autoForkOnPolicy?: boolean;
+    summaryGenerationMode?: "llm_full_context" | "heuristic";
+    summaryFallbackToHeuristic?: boolean;
+    summaryMaxOutputTokens?: number;
+    includeAssistantReply?: boolean;
+    summaryPrompt?: string;
+    summaryPromptPath?: string;
+    resumePrefixPrompt?: string;
+    resumePrefixPromptPath?: string;
+    compactionCooldownTurns?: number;
+  };
+  handoff?: {
+    enabled?: boolean;
+    handoffGenerationMode?: "llm_full_context" | "heuristic";
+    handoffFallbackToHeuristic?: boolean;
+    handoffMaxOutputTokens?: number;
+    includeAssistantReply?: boolean;
+    handoffPrompt?: string;
+    handoffPromptPath?: string;
+    handoffCooldownTurns?: number;
+  };
+  semanticReduction?: {
+    enabled?: boolean;
+    pythonBin?: string;
+    timeoutMs?: number;
+    llmlinguaModelPath?: string;
+    targetRatio?: number;
+    minInputChars?: number;
+    minSavedChars?: number;
+    preselectRatio?: number;
+    maxChunkChars?: number;
+    embedding?: {
+      provider?: "local" | "api" | "none";
+      modelPath?: string;
+      apiBaseUrl?: string;
+      apiKey?: string;
+      apiModel?: string;
+      requestTimeoutMs?: number;
+    };
+  };
 };
 
 type PluginLogger = {
@@ -43,16 +87,40 @@ type SessionTaskBinding = {
 };
 
 type SessionTopologyManager = {
-  getLogicalSessionId(sessionKey: string): string;
+  getLogicalSessionId(sessionKey: string, upstreamSessionId?: string): string;
   getStatus(sessionKey: string): string;
   listTaskCaches(sessionKey: string): string;
   newTaskCache(sessionKey: string, taskId?: string): string;
   newSession(sessionKey: string): string;
+  bindUpstreamSession(sessionKey: string, upstreamSessionId?: string): void;
+  getUpstreamSessionId(sessionKey: string): string | null;
   deleteTaskCache(sessionKey: string, taskId?: string): {
     removedTaskId: string;
     removedBindings: number;
     switchedToLogical: string;
   } | null;
+};
+
+type RecentTurnBinding = {
+  userMessage: string;
+  matchKey: string;
+  sessionKey: string;
+  upstreamSessionId?: string;
+  at: number;
+};
+
+type ManualBranchRoutingFile = {
+  updatedAt?: string;
+  bindings?: Record<
+    string,
+    {
+      physicalSessionId?: string;
+      sourceTraceId?: string;
+      sourcePhysicalSessionId?: string;
+      action?: "fork" | "revert" | string;
+      updatedAt?: string;
+    }
+  >;
 };
 
 function safeId(value: string): string {
@@ -68,6 +136,7 @@ function buildLogicalSessionId(taskId: string, sessionSeq: number): string {
 function createSessionTopologyManager(): SessionTopologyManager {
   const bindingBySessionKey = new Map<string, SessionTaskBinding>();
   const countersByTaskId = new Map<string, number>();
+  const upstreamSessionIdBySessionKey = new Map<string, string>();
   let globalDefaultTaskId: string | null = null;
 
   function scopedFamilyPrefix(sessionKey: string): string | null {
@@ -91,13 +160,20 @@ function createSessionTopologyManager(): SessionTopologyManager {
   }
 
   return {
-    getLogicalSessionId(sessionKey: string): string {
+    getLogicalSessionId(sessionKey: string, upstreamSessionId?: string): string {
       const b = ensure(sessionKey);
-      return buildLogicalSessionId(b.taskId, b.sessionSeq);
+      const base = buildLogicalSessionId(b.taskId, b.sessionSeq);
+      const upstream = String(
+        upstreamSessionId ?? upstreamSessionIdBySessionKey.get(sessionKey) ?? "",
+      ).trim();
+      if (!upstream) return base;
+      return `${base}__oc_${safeId(upstream)}`;
     },
     getStatus(sessionKey: string): string {
       const b = ensure(sessionKey);
-      return `sessionKey=${sessionKey} task=${b.taskId} logical=${buildLogicalSessionId(b.taskId, b.sessionSeq)} seq=${b.sessionSeq}`;
+      const base = buildLogicalSessionId(b.taskId, b.sessionSeq);
+      const upstream = upstreamSessionIdBySessionKey.get(sessionKey) ?? "-";
+      return `sessionKey=${sessionKey} task=${b.taskId} logical=${base} seq=${b.sessionSeq} openclawSessionId=${upstream}`;
     },
     listTaskCaches(sessionKey: string): string {
       const current = ensure(sessionKey);
@@ -153,6 +229,14 @@ function createSessionTopologyManager(): SessionTopologyManager {
       }
       return buildLogicalSessionId(updated.taskId, updated.sessionSeq);
     },
+    bindUpstreamSession(sessionKey: string, upstreamSessionId?: string): void {
+      const upstream = String(upstreamSessionId ?? "").trim();
+      if (!upstream) return;
+      upstreamSessionIdBySessionKey.set(sessionKey, upstream);
+    },
+    getUpstreamSessionId(sessionKey: string): string | null {
+      return upstreamSessionIdBySessionKey.get(sessionKey) ?? null;
+    },
     deleteTaskCache(sessionKey: string, taskId?: string) {
       const current = ensure(sessionKey);
       const targetTaskId = safeId(taskId ?? current.taskId);
@@ -184,13 +268,25 @@ function createSessionTopologyManager(): SessionTopologyManager {
 }
 
 type EcoClawCmd = {
-  kind: "none" | "status" | "cache_new" | "cache_delete" | "cache_list" | "session_new" | "help";
+  kind:
+    | "none"
+    | "status"
+    | "cache_new"
+    | "cache_delete"
+    | "cache_list"
+    | "session_new"
+    | "openclaw_session_new"
+    | "help";
   taskId?: string;
 };
 
 function parseEcoClawCommand(raw: string): EcoClawCmd {
   const text = raw.trim();
   if (!text) return { kind: "none" };
+  const bareSlash = text.startsWith("/") ? text.slice(1).trim().toLowerCase() : "";
+  if (bareSlash === "new") {
+    return { kind: "openclaw_session_new" };
+  }
   const normalized = text.startsWith("/") ? text.slice(1).trim() : text;
   const parts = normalized.split(/\s+/).filter(Boolean);
   if (parts.length === 0) return { kind: "none" };
@@ -249,6 +345,10 @@ function normalizeConfig(raw: unknown): Required<Omit<EcoClawPluginConfig, "prox
   const cfg = (raw ?? {}) as EcoClawPluginConfig;
   const defaultStateDir = join(homedir(), ".openclaw", "ecoclaw-plugin-state");
   const stateDir = cfg.stateDir ?? defaultStateDir;
+  const compaction = cfg.compaction ?? {};
+  const handoff = cfg.handoff ?? {};
+  const semantic = cfg.semanticReduction ?? {};
+  const semanticEmbedding = semantic.embedding ?? {};
   return {
     enabled: cfg.enabled ?? true,
     logLevel: cfg.logLevel ?? "info",
@@ -259,6 +359,63 @@ function normalizeConfig(raw: unknown): Required<Omit<EcoClawPluginConfig, "prox
     debugTapPath: cfg.debugTapPath ?? join(stateDir, "ecoclaw", "provider-traffic.jsonl"),
     proxyAutostart: cfg.proxyAutostart ?? true,
     proxyPort: Math.max(1025, Math.min(65535, cfg.proxyPort ?? 17667)),
+    compaction: {
+      enabled: compaction.enabled ?? true,
+      autoForkOnPolicy: compaction.autoForkOnPolicy ?? true,
+      summaryGenerationMode:
+        compaction.summaryGenerationMode === "llm_full_context" ? "llm_full_context" : "heuristic",
+      summaryFallbackToHeuristic: compaction.summaryFallbackToHeuristic ?? true,
+      summaryMaxOutputTokens: Math.max(128, Math.min(8192, compaction.summaryMaxOutputTokens ?? 1200)),
+      includeAssistantReply: compaction.includeAssistantReply ?? true,
+      summaryPrompt: typeof compaction.summaryPrompt === "string" ? compaction.summaryPrompt : undefined,
+      summaryPromptPath: typeof compaction.summaryPromptPath === "string" ? compaction.summaryPromptPath : undefined,
+      resumePrefixPrompt:
+        typeof compaction.resumePrefixPrompt === "string" ? compaction.resumePrefixPrompt : undefined,
+      resumePrefixPromptPath:
+        typeof compaction.resumePrefixPromptPath === "string" ? compaction.resumePrefixPromptPath : undefined,
+      compactionCooldownTurns: Math.max(0, compaction.compactionCooldownTurns ?? 6),
+    },
+    handoff: {
+      enabled: handoff.enabled ?? false,
+      handoffGenerationMode:
+        handoff.handoffGenerationMode === "llm_full_context" ? "llm_full_context" : "heuristic",
+      handoffFallbackToHeuristic: handoff.handoffFallbackToHeuristic ?? true,
+      handoffMaxOutputTokens: Math.max(128, Math.min(8192, handoff.handoffMaxOutputTokens ?? 900)),
+      includeAssistantReply: handoff.includeAssistantReply ?? true,
+      handoffPrompt: typeof handoff.handoffPrompt === "string" ? handoff.handoffPrompt : undefined,
+      handoffPromptPath: typeof handoff.handoffPromptPath === "string" ? handoff.handoffPromptPath : undefined,
+      handoffCooldownTurns: Math.max(0, handoff.handoffCooldownTurns ?? 4),
+    },
+    semanticReduction: {
+      enabled: semantic.enabled ?? false,
+      pythonBin: semantic.pythonBin ?? "python",
+      timeoutMs: Math.max(1000, Math.min(300000, semantic.timeoutMs ?? 120000)),
+      llmlinguaModelPath: semantic.llmlinguaModelPath,
+      targetRatio:
+        typeof semantic.targetRatio === "number"
+          ? Math.min(0.95, Math.max(0.05, semantic.targetRatio))
+          : 0.55,
+      minInputChars: Math.max(256, semantic.minInputChars ?? 4000),
+      minSavedChars: Math.max(32, semantic.minSavedChars ?? 200),
+      preselectRatio:
+        typeof semantic.preselectRatio === "number"
+          ? Math.min(1, Math.max(0.05, semantic.preselectRatio))
+          : 0.8,
+      maxChunkChars: Math.max(256, semantic.maxChunkChars ?? 1400),
+      embedding: {
+        provider:
+          semanticEmbedding.provider === "local" ||
+          semanticEmbedding.provider === "api" ||
+          semanticEmbedding.provider === "none"
+            ? semanticEmbedding.provider
+            : "none",
+        modelPath: semanticEmbedding.modelPath,
+        apiBaseUrl: semanticEmbedding.apiBaseUrl,
+        apiKey: semanticEmbedding.apiKey,
+        apiModel: semanticEmbedding.apiModel,
+        requestTimeoutMs: Math.max(1000, Math.min(120000, semanticEmbedding.requestTimeoutMs ?? 30000)),
+      },
+    },
   };
 }
 
@@ -266,48 +423,61 @@ function normalizeText(input: string): string {
   return input.replace(/\s+/g, " ").trim();
 }
 
-const OPENCLAW_TIMESTAMP_PREFIX_RE =
-  /^(\[[A-Za-z]{3}\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}\s+GMT[+-]\d+\])\s*/;
+const OPENCLAW_SENDER_METADATA_BLOCK_RE =
+  /(?:^|\n{1,2})Sender\s+\(untrusted metadata\):\s*```json\s*[\s\S]*?```(?:\n{1,2}|$)/gi;
+const OPENCLAW_SENDER_METADATA_DETECT_RE =
+  /Sender\s+\(untrusted metadata\):\s*```json/gi;
 
-function normalizeTimestampPrefix(text: string): string {
+function stripUntrustedSenderMetadata(text: string): string {
   const raw = String(text ?? "");
-  const match = raw.match(OPENCLAW_TIMESTAMP_PREFIX_RE);
-  if (!match) return raw;
-  const originalPrefix = match[1];
-  const rest = raw.slice(match[0].length);
-  const stableHead = rest.length > 0 ? `[<TS>] ${rest}` : "[<TS>]";
-  return `${stableHead}\n\n[<TS>: ${originalPrefix}]`;
+  const withoutMetadata = raw.replace(OPENCLAW_SENDER_METADATA_BLOCK_RE, "\n\n");
+  return withoutMetadata.replace(/\n{3,}/g, "\n\n").trim();
 }
 
-function normalizeContentValue(value: any): { value: any; changed: boolean } {
+function normalizeUserMessageText(text: string): string {
+  return stripUntrustedSenderMetadata(String(text ?? ""));
+}
+
+function normalizeTurnBindingMessage(text: string): string {
+  return normalizeUserMessageText(String(text ?? "").trim()).trim();
+}
+
+function countSenderMetadataBlocks(value: any): number {
+  const matches = String(extractInputText(value) ?? "").match(OPENCLAW_SENDER_METADATA_DETECT_RE);
+  return matches ? matches.length : 0;
+}
+
+function normalizeContentNode(value: any): { value: any; changed: boolean } {
   if (typeof value === "string") {
-    const next = normalizeTimestampPrefix(value);
+    const next = normalizeUserMessageText(value);
     return { value: next, changed: next !== value };
   }
-  if (!Array.isArray(value)) {
+  if (Array.isArray(value)) {
+    let changed = false;
+    const next = value.map((item) => {
+      const normalized = normalizeContentNode(item);
+      if (normalized.changed) changed = true;
+      return normalized.value;
+    });
+    return { value: next, changed };
+  }
+  if (!value || typeof value !== "object") {
     return { value, changed: false };
   }
   let changed = false;
-  const next = value.map((item) => {
-    if (!item || typeof item !== "object") return item;
-    const clone = { ...item };
-    if (typeof clone.text === "string") {
-      const nextText = normalizeTimestampPrefix(clone.text);
-      if (nextText !== clone.text) {
-        clone.text = nextText;
-        changed = true;
-      }
+  const next: Record<string, any> = Array.isArray(value) ? [] : { ...value };
+  for (const [key, child] of Object.entries(value)) {
+    const normalized = normalizeContentNode(child);
+    if (normalized.changed) {
+      changed = true;
+      next[key] = normalized.value;
     }
-    if (typeof clone.content === "string") {
-      const nextContent = normalizeTimestampPrefix(clone.content);
-      if (nextContent !== clone.content) {
-        clone.content = nextContent;
-        changed = true;
-      }
-    }
-    return clone;
-  });
-  return { value: next, changed };
+  }
+  return { value: changed ? next : value, changed };
+}
+
+function normalizeContentValue(value: any): { value: any; changed: boolean } {
+  return normalizeContentNode(value);
 }
 
 function summarizeToolsFingerprint(tools: any): string[] {
@@ -347,21 +517,32 @@ function computeStablePromptCacheKey(
 
 function rewritePayloadForStablePrefix(payload: any, model: string): {
   promptCacheKey: string;
-  userTimestampRewrites: number;
+  userContentRewrites: number;
+  senderMetadataBlocksBefore: number;
+  senderMetadataBlocksAfter: number;
   developerTextForKey: string;
 } {
-  let userTimestampRewrites = 0;
+  let userContentRewrites = 0;
+  let senderMetadataBlocksBefore = 0;
+  let senderMetadataBlocksAfter = 0;
   if (Array.isArray(payload?.input)) {
     payload.input = payload.input.map((item: any) => {
       if (!item || typeof item !== "object") return item;
       if (String(item.role ?? "") !== "user") return item;
+      if (item.__ecoclaw_replay_raw === true) return item;
+      senderMetadataBlocksBefore += countSenderMetadataBlocks(item.content);
       const normalized = normalizeContentValue(item.content);
-      if (!normalized.changed) return item;
-      userTimestampRewrites += 1;
-      return {
+      if (!normalized.changed) {
+        senderMetadataBlocksAfter += countSenderMetadataBlocks(item.content);
+        return item;
+      }
+      userContentRewrites += 1;
+      const nextItem = {
         ...item,
         content: normalized.value,
       };
+      senderMetadataBlocksAfter += countSenderMetadataBlocks(nextItem.content);
+      return nextItem;
     });
   }
 
@@ -375,9 +556,22 @@ function rewritePayloadForStablePrefix(payload: any, model: string): {
   payload.prompt_cache_key = stablePromptCacheKey;
   return {
     promptCacheKey: stablePromptCacheKey,
-    userTimestampRewrites,
+    userContentRewrites,
+    senderMetadataBlocksBefore,
+    senderMetadataBlocksAfter,
     developerTextForKey,
   };
+}
+
+function stripInternalPayloadMarkers(payload: any): void {
+  if (!payload || !Array.isArray(payload.input)) return;
+  payload.input = payload.input.map((item: any) => {
+    if (!item || typeof item !== "object") return item;
+    if (!Object.prototype.hasOwnProperty.call(item, "__ecoclaw_replay_raw")) return item;
+    const clone = { ...item };
+    delete clone.__ecoclaw_replay_raw;
+    return clone;
+  });
 }
 
 function extractInputText(input: any): string {
@@ -406,18 +600,45 @@ function extractInputText(input: any): string {
   return "";
 }
 
-function getStrictDeveloperUserFirstTurn(input: any): { developerText: string; userItem: any; developerItem: any } | null {
-  if (!Array.isArray(input) || input.length !== 2) return null;
-  const first = input[0];
-  const last = input[1];
-  if (!first || typeof first !== "object" || String((first as any).role) !== "developer") return null;
-  if (!last || typeof last !== "object" || String((last as any).role) !== "user") return null;
-  const developerText =
-    typeof (first as any).content === "string"
-      ? String((first as any).content)
-      : extractInputText([first]);
-  if (!developerText.trim()) return null;
-  return { developerText, userItem: last, developerItem: first };
+function findDeveloperAndPrimaryUser(input: any): {
+  developerText: string;
+  developerIndex: number;
+  developerItem: any;
+  userIndex: number;
+  userItem: any | null;
+} | null {
+  if (!Array.isArray(input) || input.length === 0) return null;
+  let developerIndex = -1;
+  let developerItem: any = null;
+  let developerText = "";
+  for (let i = 0; i < input.length; i += 1) {
+    const item = input[i];
+    if (!item || typeof item !== "object" || String((item as any).role) !== "developer") continue;
+    const text =
+      typeof (item as any).content === "string"
+        ? String((item as any).content)
+        : extractInputText([item]);
+    if (!text.trim()) continue;
+    developerIndex = i;
+    developerItem = item;
+    developerText = text;
+    break;
+  }
+  if (developerIndex < 0 || !developerItem) return null;
+
+  let userIndex = -1;
+  for (let i = developerIndex + 1; i < input.length; i += 1) {
+    const item = input[i];
+    if (item && typeof item === "object" && String((item as any).role) === "user") {
+      userIndex = i;
+      break;
+    }
+  }
+  if (userIndex < 0) {
+    userIndex = input.findIndex((item) => item && typeof item === "object" && String((item as any).role) === "user");
+  }
+  const userItem = userIndex >= 0 ? input[userIndex] : null;
+  return { developerText, developerIndex, developerItem, userIndex, userItem };
 }
 
 type DeveloperRewrite = {
@@ -449,6 +670,22 @@ function rewriteDeveloperPromptForRootLink(developerText: string): DeveloperRewr
     canonical = canonical.split(workdir).join("<WORKDIR>");
   }
   canonical = canonical.replace(/(Runtime:\s*agent=)[^|\n\r]+/gi, "$1<AGENT_ID>");
+  canonical = canonical.replace(
+    /^##\s+<WORKDIR>[\\/]+([^\\/\n\r]+)$/gm,
+    "## $1",
+  );
+  canonical = canonical.replace(
+    /^##\s+(?:[A-Za-z]:[\\/]|\/)[^\n\r]*[\\/]+([^\\/\n\r]+)$/gm,
+    "## $1",
+  );
+  canonical = canonical.replace(
+    /(\[MISSING\]\s+Expected at:\s*)<WORKDIR>[\\/]+([^\\/\n\r]+)/g,
+    "$1$2",
+  );
+  canonical = canonical.replace(
+    /(\[MISSING\]\s+Expected at:\s*)(?:[A-Za-z]:[\\/]|\/)[^\n\r]*[\\/]+([^\\/\n\r]+)/g,
+    "$1$2",
+  );
 
   const dynamicLines: string[] = [];
   if (workdir) dynamicLines.push(`- WORKDIR: ${workdir}`);
@@ -495,6 +732,230 @@ function prependTextToContent(content: any, extraText: string): any {
     return next;
   }
   return extra;
+}
+
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function extractItemText(item: any): string {
+  if (!item || typeof item !== "object") return "";
+  return extractInputText([item]).trim();
+}
+
+function findLastUserItem(input: any): { userIndex: number; userItem: any | null } | null {
+  if (!Array.isArray(input) || input.length === 0) return null;
+  for (let i = input.length - 1; i >= 0; i -= 1) {
+    const item = input[i];
+    if (!item || typeof item !== "object") continue;
+    if (String((item as any).role) === "user") {
+      return { userIndex: i, userItem: item };
+    }
+  }
+  return null;
+}
+
+function stripReplyTag(text: string): string {
+  return String(text ?? "").replace(/^\s*\[\[[^\]]+\]\]\s*/u, "").trim();
+}
+
+function safeStateSessionId(input: string): string {
+  return String(input ?? "").replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+async function readJsonlRows(path: string): Promise<any[]> {
+  try {
+    const raw = await readFile(path, "utf8");
+    return raw
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        try {
+          return JSON.parse(line);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+async function readManualBranchRouting(stateDir: string): Promise<ManualBranchRoutingFile> {
+  const path = join(stateDir, "ecoclaw", "controls", "manual-branch-routing.json");
+  try {
+    return JSON.parse(await readFile(path, "utf8")) as ManualBranchRoutingFile;
+  } catch {
+    return {};
+  }
+}
+
+function recentTurnBindingsPath(stateDir: string): string {
+  return join(stateDir, "ecoclaw", "controls", "recent-turn-bindings.json");
+}
+
+function loadRecentTurnBindingsFromState(stateDir: string): RecentTurnBinding[] {
+  try {
+    const parsed = JSON.parse(readFileSync(recentTurnBindingsPath(stateDir), "utf8"));
+    if (!Array.isArray(parsed)) return [];
+    const out: RecentTurnBinding[] = [];
+    for (const entry of parsed) {
+      if (!entry || typeof entry !== "object") continue;
+      const userMessage = String((entry as any).userMessage ?? "").trim();
+      const matchKey =
+        String((entry as any).matchKey ?? "").trim() || normalizeTurnBindingMessage(userMessage);
+      const sessionKey = String((entry as any).sessionKey ?? "").trim();
+      const upstreamSessionId = String((entry as any).upstreamSessionId ?? "").trim() || undefined;
+      const atRaw = Number((entry as any).at ?? 0);
+      const at = Number.isFinite(atRaw) ? atRaw : 0;
+      if (!userMessage || !matchKey || !sessionKey || !at) continue;
+      out.push({ userMessage, matchKey, sessionKey, upstreamSessionId, at });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+function persistRecentTurnBindingsToState(stateDir: string, bindings: RecentTurnBinding[]): void {
+  try {
+    mkdirSync(dirname(recentTurnBindingsPath(stateDir)), { recursive: true });
+    writeFileSync(recentTurnBindingsPath(stateDir), JSON.stringify(bindings.slice(-128), null, 2), "utf8");
+  } catch {
+    // Best-effort only: provider-side lookup can still rely on in-memory bindings if persistence fails.
+  }
+}
+
+function extractStoredToolSegments(record: any): Array<{ text: string; toolName?: string }> {
+  const pools = [
+    Array.isArray(record?.segments) ? record.segments : [],
+    Array.isArray(record?.trace?.initialContext?.segments) ? record.trace.initialContext.segments : [],
+    Array.isArray(record?.trace?.finalContext?.segments) ? record.trace.finalContext.segments : [],
+  ];
+  const out: Array<{ text: string; toolName?: string }> = [];
+  const seen = new Set<string>();
+  for (const pool of pools) {
+    for (const segment of pool) {
+      if (!segment || typeof segment !== "object") continue;
+      const metadata = (segment as any).metadata && typeof (segment as any).metadata === "object"
+        ? ((segment as any).metadata as Record<string, unknown>)
+        : {};
+      const toolPayload = metadata.toolPayload && typeof metadata.toolPayload === "object"
+        ? (metadata.toolPayload as Record<string, unknown>)
+        : {};
+      const reduction = metadata.reduction && typeof metadata.reduction === "object"
+        ? (metadata.reduction as Record<string, unknown>)
+        : {};
+      const source = String((segment as any).source ?? "");
+      const isTool = Boolean(
+        metadata.isToolPayload ||
+          toolPayload.enabled ||
+          reduction.target === "tool_payload" ||
+          source.includes("tool") ||
+          source.includes("observation"),
+      );
+      const text = typeof (segment as any).text === "string" ? String((segment as any).text).trim() : "";
+      if (!isTool || !text) continue;
+      const key = `${String((segment as any).id ?? "")}:${text}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        text,
+        toolName:
+          typeof toolPayload.toolName === "string" && toolPayload.toolName.trim().length > 0
+            ? toolPayload.toolName.trim()
+            : undefined,
+      });
+    }
+  }
+  return out;
+}
+
+async function buildManualReplayHistory(
+  stateDir: string,
+  physicalSessionId: string,
+): Promise<any[]> {
+  const turnsPath = join(
+    stateDir,
+    "ecoclaw",
+    "sessions",
+    safeStateSessionId(physicalSessionId),
+    "turns.jsonl",
+  );
+  const rows = await readJsonlRows(turnsPath);
+  const input: any[] = [];
+  for (const row of rows) {
+    const prompt = typeof row?.prompt === "string" ? String(row.prompt).trim() : "";
+    if (prompt) input.push({ role: "user", content: prompt, __ecoclaw_replay_raw: true });
+    for (const tool of extractStoredToolSegments(row)) {
+      input.push({
+        role: "tool",
+        content: tool.text,
+        ...(tool.toolName ? { name: tool.toolName } : {}),
+      });
+    }
+    const responseRaw =
+      typeof row?.response === "string"
+        ? row.response
+        : typeof row?.responsePreview === "string"
+          ? row.responsePreview
+          : "";
+    const response = stripReplyTag(responseRaw);
+    if (response) input.push({ role: "assistant", content: response });
+  }
+  return input;
+}
+
+async function maybeApplyManualBranchReplay(
+  payload: any,
+  cfg: ReturnType<typeof normalizeConfig>,
+  topology: SessionTopologyManager,
+  resolveTurnBinding: (userMessage: string) => RecentTurnBinding | null,
+): Promise<null | {
+  logicalSessionId: string;
+  physicalSessionId: string;
+  replayItemCount: number;
+}> {
+  if (!cfg.stateDir) return null;
+  if (!payload || !Array.isArray(payload.input)) return null;
+  const devAndUser = findDeveloperAndPrimaryUser(payload.input);
+  const lastUser = findLastUserItem(payload.input);
+  const currentUserItem = lastUser?.userItem ?? devAndUser?.userItem ?? null;
+  const currentUserText = extractItemText(currentUserItem);
+  if (!currentUserText) return null;
+
+  const turnBinding = resolveTurnBinding(currentUserText);
+  if (!turnBinding) return null;
+  const logicalSessionId = topology.getLogicalSessionId(
+    turnBinding.sessionKey,
+    turnBinding.upstreamSessionId,
+  );
+  const manualRouting = await readManualBranchRouting(cfg.stateDir);
+  const manualBinding = manualRouting.bindings?.[logicalSessionId];
+  const physicalSessionId = String(manualBinding?.physicalSessionId ?? "").trim();
+  if (!physicalSessionId) return null;
+
+  const replayItems = await buildManualReplayHistory(cfg.stateDir, physicalSessionId);
+  const dedupedReplayItems =
+    replayItems.length > 0 &&
+    String(replayItems[replayItems.length - 1]?.role ?? "") === "user" &&
+    extractItemText(replayItems[replayItems.length - 1]) === currentUserText
+      ? replayItems.slice(0, -1)
+      : replayItems;
+  const nextInput: any[] = [];
+  if (devAndUser?.developerItem) {
+    nextInput.push(cloneJson(devAndUser.developerItem));
+  }
+  nextInput.push(...dedupedReplayItems.map((item) => cloneJson(item)));
+  nextInput.push(cloneJson(currentUserItem));
+  payload.input = nextInput;
+  return {
+    logicalSessionId,
+    physicalSessionId,
+    replayItemCount: dedupedReplayItems.length,
+  };
 }
 
 function normalizeProxyModelId(model: string): string {
@@ -623,6 +1084,8 @@ async function ensureExplicitProxyModelsInConfig(
 async function startEmbeddedResponsesProxy(
   cfg: ReturnType<typeof normalizeConfig>,
   logger: Required<PluginLogger>,
+  topology: SessionTopologyManager,
+  resolveTurnBinding: (userMessage: string) => RecentTurnBinding | null,
 ): Promise<{ baseUrl: string; upstream: UpstreamConfig; close: () => Promise<void> } | null> {
   if (!cfg.proxyAutostart) return null;
   const upstream = await detectUpstreamConfig(logger);
@@ -653,8 +1116,14 @@ async function startEmbeddedResponsesProxy(
       if (upstreamModel && upstreamModel !== model) {
         payload.model = upstreamModel;
       }
+      const manualReplay = await maybeApplyManualBranchReplay(
+        payload,
+        cfg,
+        topology,
+        resolveTurnBinding,
+      );
       const instructions = normalizeText(String(payload?.instructions ?? ""));
-      const devAndUser = getStrictDeveloperUserFirstTurn(payload?.input);
+      const devAndUser = findDeveloperAndPrimaryUser(payload?.input);
       const firstTurnCandidate = Boolean(devAndUser);
       const developerRewrite = devAndUser
         ? rewriteDeveloperPromptForRootLink(devAndUser.developerText)
@@ -669,23 +1138,27 @@ async function startEmbeddedResponsesProxy(
         typeof payload?.prompt_cache_key === "string" && payload.prompt_cache_key.trim().length > 0
           ? String(payload.prompt_cache_key)
           : "";
-      if (devAndUser && developerRewrite && Array.isArray(payload?.input) && payload.input.length >= 1) {
-        payload.input[0] = {
-          ...(devAndUser.developerItem ?? payload.input[0]),
+      if (devAndUser && developerRewrite && Array.isArray(payload?.input) && devAndUser.developerIndex >= 0) {
+        payload.input[devAndUser.developerIndex] = {
+          ...(devAndUser.developerItem ?? payload.input[devAndUser.developerIndex]),
           role: "developer",
           content: developerRewrite.forwardedDeveloperText,
         };
-        if (developerRewrite.dynamicContextText) {
-          payload.input[1] = {
-            ...(devAndUser.userItem ?? payload.input[1]),
+        if (developerRewrite.dynamicContextText && devAndUser.userIndex >= 0) {
+          payload.input[devAndUser.userIndex] = {
+            ...(devAndUser.userItem ?? payload.input[devAndUser.userIndex]),
             role: "user",
-            content: prependTextToContent((devAndUser.userItem ?? payload.input[1])?.content, developerRewrite.dynamicContextText),
+            content: prependTextToContent(
+              (devAndUser.userItem ?? payload.input[devAndUser.userIndex])?.content,
+              developerRewrite.dynamicContextText,
+            ),
           };
         }
       }
       const stableRewrite = rewritePayloadForStablePrefix(payload, model);
+      stripInternalPayloadMarkers(payload);
       logger.info(
-        `[ecoclaw] proxy request model=${model || "unknown"} upstreamModel=${upstreamModel || "unknown"} instrChars=${instructions.length} cacheKey=${stableRewrite.promptCacheKey} userTsRewrites=${stableRewrite.userTimestampRewrites}`,
+        `[ecoclaw] proxy request model=${model || "unknown"} upstreamModel=${upstreamModel || "unknown"} instrChars=${instructions.length} cacheKey=${stableRewrite.promptCacheKey} userContentRewrites=${stableRewrite.userContentRewrites} senderBlocks=${stableRewrite.senderMetadataBlocksBefore}->${stableRewrite.senderMetadataBlocksAfter}`,
       );
       if (cfg.debugTapProviderTraffic) {
         const debugRecord = {
@@ -702,9 +1175,14 @@ async function startEmbeddedResponsesProxy(
           developerRewritten: Boolean(developerRewrite?.changed),
           developerRewriteWorkdir: developerRewrite?.workdir ?? "",
           developerRewriteAgentId: developerRewrite?.agentId ?? "",
+          manualReplayLogicalSessionId: manualReplay?.logicalSessionId ?? "",
+          manualReplayPhysicalSessionId: manualReplay?.physicalSessionId ?? "",
+          manualReplayItemCount: manualReplay?.replayItemCount ?? 0,
           originalPromptCacheKey,
           rewrittenPromptCacheKey: stableRewrite.promptCacheKey,
-          userTimestampRewrites: stableRewrite.userTimestampRewrites,
+          userContentRewrites: stableRewrite.userContentRewrites,
+          senderMetadataBlocksBefore: stableRewrite.senderMetadataBlocksBefore,
+          senderMetadataBlocksAfter: stableRewrite.senderMetadataBlocksAfter,
           payload,
         };
         await mkdir(dirname(cfg.debugTapPath), { recursive: true });
@@ -720,8 +1198,8 @@ async function startEmbeddedResponsesProxy(
         body: JSON.stringify(payload),
       });
       const txt = await upstreamResp.text();
-      if (cfg.debugTapProviderTraffic) {
-        const debugRecord = {
+      {
+        const forwardedRecord = {
           at: new Date().toISOString(),
           stage: "proxy_forwarded",
           model,
@@ -735,6 +1213,9 @@ async function startEmbeddedResponsesProxy(
           forwardedInputRoles: Array.isArray(payload?.input)
             ? payload.input.map((x: any) => String(x?.role ?? ""))
             : [],
+          forwardedManualReplayLogicalSessionId: manualReplay?.logicalSessionId ?? null,
+          forwardedManualReplayPhysicalSessionId: manualReplay?.physicalSessionId ?? null,
+          forwardedManualReplayItemCount: manualReplay?.replayItemCount ?? 0,
           forwardedDeveloperChars:
             Array.isArray(payload?.input) &&
             payload.input.length > 0 &&
@@ -744,8 +1225,7 @@ async function startEmbeddedResponsesProxy(
               : 0,
           payload,
         };
-        await mkdir(dirname(cfg.debugTapPath), { recursive: true });
-        await appendFile(cfg.debugTapPath, `${JSON.stringify(debugRecord)}\n`, "utf8");
+        await appendJsonl(cfg.debugTapPath, forwardedRecord);
       }
       if (cfg.debugTapProviderTraffic) {
         let parsedResponse: any = null;
@@ -822,13 +1302,14 @@ async function startEmbeddedResponsesProxy(
 function maybeInstallProviderTrafficTap(
   cfg: ReturnType<typeof normalizeConfig>,
   logger: Required<PluginLogger>,
+  topology: SessionTopologyManager,
+  resolveTurnBinding: (userMessage: string) => RecentTurnBinding | null,
 ): void {
-  if (!cfg.debugTapProviderTraffic) return;
   const g = globalThis as any;
   if (g.__ecoclaw_provider_tap_installed__) return;
   const origFetch = g.fetch;
   if (typeof origFetch !== "function") {
-    logger.warn("[ecoclaw] debugTapProviderTraffic requested but global fetch is unavailable.");
+    logger.warn("[ecoclaw] provider interception requested but global fetch is unavailable.");
     return;
   }
 
@@ -873,7 +1354,10 @@ function maybeInstallProviderTrafficTap(
     if (isProviderCall && reqBody) {
       try {
         const parsedBody = JSON.parse(reqBody);
-        const devAndUser = isResponsesCall ? getStrictDeveloperUserFirstTurn(parsedBody?.input) : null;
+        const manualReplay = isResponsesCall
+          ? await maybeApplyManualBranchReplay(parsedBody, cfg, topology, resolveTurnBinding)
+          : null;
+        const devAndUser = isResponsesCall ? findDeveloperAndPrimaryUser(parsedBody?.input) : null;
         const developerRewrite = devAndUser
           ? rewriteDeveloperPromptForRootLink(devAndUser.developerText)
           : null;
@@ -881,20 +1365,20 @@ function maybeInstallProviderTrafficTap(
           devAndUser &&
           developerRewrite &&
           Array.isArray(parsedBody?.input) &&
-          parsedBody.input.length >= 1 &&
+          devAndUser.developerIndex >= 0 &&
           developerRewrite.changed
         ) {
-          parsedBody.input[0] = {
-            ...(devAndUser.developerItem ?? parsedBody.input[0]),
+          parsedBody.input[devAndUser.developerIndex] = {
+            ...(devAndUser.developerItem ?? parsedBody.input[devAndUser.developerIndex]),
             role: "developer",
             content: developerRewrite.forwardedDeveloperText,
           };
-          if (developerRewrite.dynamicContextText) {
-            parsedBody.input[1] = {
-              ...(devAndUser.userItem ?? parsedBody.input[1]),
+          if (developerRewrite.dynamicContextText && devAndUser.userIndex >= 0) {
+            parsedBody.input[devAndUser.userIndex] = {
+              ...(devAndUser.userItem ?? parsedBody.input[devAndUser.userIndex]),
               role: "user",
               content: prependTextToContent(
-                (devAndUser.userItem ?? parsedBody.input[1])?.content,
+                (devAndUser.userItem ?? parsedBody.input[devAndUser.userIndex])?.content,
                 developerRewrite.dynamicContextText,
               ),
             };
@@ -905,6 +1389,7 @@ function maybeInstallProviderTrafficTap(
             ? String(parsedBody.prompt_cache_key)
             : "";
         const stableRewrite = rewritePayloadForStablePrefix(parsedBody, String(parsedBody?.model ?? ""));
+        stripInternalPayloadMarkers(parsedBody);
         if (isResponsesCall) {
           parsedBody.prompt_cache_retention = "24h";
         }
@@ -922,26 +1407,23 @@ function maybeInstallProviderTrafficTap(
             body: rewrittenBody,
           });
         }
-        if (cfg.debugTapProviderTraffic) {
-          const p = cfg.debugTapPath;
-          await mkdir(dirname(p), { recursive: true });
-          await appendFile(
-            p,
-            `${JSON.stringify({
-              at: new Date().toISOString(),
-              stage: "provider_rewrite",
-              url,
-              originalPromptCacheKey,
-              rewrittenPromptCacheKey: stableRewrite.promptCacheKey,
-              userTimestampRewrites: stableRewrite.userTimestampRewrites,
-              developerPromptRewritten: Boolean(developerRewrite?.changed),
-              developerRewriteWorkdir: developerRewrite?.workdir ?? "",
-              developerRewriteAgentId: developerRewrite?.agentId ?? "",
-              bodySource,
-            })}\n`,
-            "utf8",
-          );
-        }
+        await appendJsonl(cfg.debugTapPath, {
+          at: new Date().toISOString(),
+          stage: "provider_rewrite",
+          url,
+          manualReplayLogicalSessionId: manualReplay?.logicalSessionId ?? "",
+          manualReplayPhysicalSessionId: manualReplay?.physicalSessionId ?? "",
+          manualReplayItemCount: manualReplay?.replayItemCount ?? 0,
+          originalPromptCacheKey,
+          rewrittenPromptCacheKey: stableRewrite.promptCacheKey,
+          userContentRewrites: stableRewrite.userContentRewrites,
+          senderMetadataBlocksBefore: stableRewrite.senderMetadataBlocksBefore,
+          senderMetadataBlocksAfter: stableRewrite.senderMetadataBlocksAfter,
+          developerPromptRewritten: Boolean(developerRewrite?.changed),
+          developerRewriteWorkdir: developerRewrite?.workdir ?? "",
+          developerRewriteAgentId: developerRewrite?.agentId ?? "",
+          bodySource,
+        });
       } catch {
         // Ignore non-JSON provider bodies.
       }
@@ -967,6 +1449,7 @@ function maybeInstallProviderTrafficTap(
             parsed?.response?.usage ??
             parsed?.data?.usage ??
             undefined;
+          const responseText = extractProviderResponseText(txt, parsed);
           const rec = {
             at: startedAt,
             method,
@@ -974,13 +1457,10 @@ function maybeInstallProviderTrafficTap(
             status: Number((res as any)?.status ?? 0),
             requestBody: reqBody || undefined,
             responseUsage: usage || undefined,
+            responseText: responseText || undefined,
             responseBody: parsed ?? (txt ? txt.slice(0, 4000) : undefined),
           };
-          if (cfg.debugTapProviderTraffic) {
-            const p = cfg.debugTapPath;
-            await mkdir(dirname(p), { recursive: true });
-            await appendFile(p, `${JSON.stringify(rec)}\n`, "utf8");
-          }
+          await appendJsonl(cfg.debugTapPath, rec);
         } catch (err) {
           logger.warn(
             `[ecoclaw] provider tap write failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -990,9 +1470,11 @@ function maybeInstallProviderTrafficTap(
     }
     return res;
   };
-  logger.info(
-    `[ecoclaw] Provider interception enabled. tap=${cfg.debugTapPath}`,
-  );
+  if (cfg.debugTapProviderTraffic) {
+    logger.info(`[ecoclaw] Provider interception enabled. tap=${cfg.debugTapPath}`);
+  } else {
+    logger.debug(`[ecoclaw] Provider interception enabled. tap=${cfg.debugTapPath}`);
+  }
 }
 
 function toJsonSafe(value: unknown, seen = new WeakSet<object>()): unknown {
@@ -1044,6 +1526,9 @@ function installLlmHookTap(
     "before_agent_start",
     "llm_input",
     "llm_output",
+    "session_start",
+    "session_end",
+    "before_reset",
     "agent_end",
   ];
   for (const hookName of hookNames) {
@@ -1161,9 +1646,13 @@ function extractSessionKey(event: any): string {
   const agentMeta = event?.result?.meta?.agentMeta ?? event?.meta?.agentMeta ?? event?.agentMeta;
   const direct =
     event?.sessionKey ??
+    event?.SessionKey ??
     event?.result?.sessionKey ??
+    event?.result?.SessionKey ??
     event?.meta?.sessionKey ??
+    event?.meta?.SessionKey ??
     event?.ctx?.SessionKey ??
+    event?.ctx?.CommandTargetSessionKey ??
     event?.session?.key ??
     event?.sessionId ??
     event?.result?.sessionId ??
@@ -1180,6 +1669,23 @@ function extractSessionKey(event: any): string {
   if (scoped.length > 0) return `scoped:${scoped.join(":")}`;
 
   return "unknown";
+}
+
+function extractOpenClawSessionId(event: any): string {
+  const agentMeta = event?.result?.meta?.agentMeta ?? event?.meta?.agentMeta ?? event?.agentMeta;
+  const direct =
+    event?.sessionId ??
+    event?.SessionId ??
+    event?.ctx?.SessionId ??
+    event?.result?.sessionId ??
+    event?.result?.SessionId ??
+    event?.meta?.sessionId ??
+    event?.meta?.SessionId ??
+    event?.session?.id ??
+    agentMeta?.sessionId ??
+    "";
+  if (typeof direct === "string" && direct.trim().length > 0) return direct.trim();
+  return "";
 }
 
 function contentToText(value: unknown): string {
@@ -1214,7 +1720,74 @@ function contentToText(value: unknown): string {
   return String(value);
 }
 
+function extractResponseTextFromProviderNode(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return contentToText(value);
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => extractResponseTextFromProviderNode(item))
+      .filter((s) => s.trim().length > 0)
+      .join("\n");
+  }
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const type = String(obj.type ?? "").toLowerCase();
+    const role = String(obj.role ?? "").toLowerCase();
+    if (type === "output_text" && typeof obj.text === "string") {
+      return obj.text;
+    }
+    if (typeof obj.delta === "string" && obj.delta.trim().length > 0) {
+      return obj.delta;
+    }
+    if (type === "message" || role === "assistant") {
+      return extractResponseTextFromProviderNode(obj.content ?? obj.output ?? obj.text);
+    }
+    return extractResponseTextFromProviderNode(
+      obj.response ?? obj.output ?? obj.item ?? obj.content ?? obj.text ?? obj.message,
+    );
+  }
+  return "";
+}
+
+function extractProviderResponseText(rawText: string, parsed?: unknown): string {
+  const parsedRecord = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+  const parsedType = String(parsedRecord?.type ?? "").toLowerCase();
+  const fromParsed =
+    parsedType === "response.created"
+      ? ""
+      : extractResponseTextFromProviderNode(parsed);
+  if (fromParsed.trim().length > 0) return fromParsed.trim();
+
+  let deltaText = "";
+  const lines = String(rawText ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  for (const line of lines) {
+    if (!line.startsWith("data:")) continue;
+    try {
+      const record = JSON.parse(line.slice(5).trim()) as Record<string, unknown>;
+      const type = String(record.type ?? "").toLowerCase();
+      if (type === "response.created") continue;
+      const fromRecord = extractResponseTextFromProviderNode(
+        record.response ?? record.output ?? record.item ?? record,
+      );
+      if (fromRecord.trim().length > 0) return fromRecord.trim();
+      if (typeof record.delta === "string") {
+        deltaText += record.delta;
+      }
+    } catch {
+      // ignore malformed stream fragments
+    }
+  }
+  return deltaText.trim();
+}
+
 function extractLastUserMessage(event: any): string {
+  const promptText = typeof event?.prompt === "string" ? event.prompt.trim() : "";
+  if (promptText) return promptText;
   const messages = Array.isArray(event?.messages) ? event.messages : [];
   const lastUser = [...messages].reverse().find((m: any) => m?.role === "user");
   return contentToText(lastUser?.content ?? event?.message?.content ?? event?.message ?? "");
@@ -1441,20 +2014,72 @@ function normalizeShadowProvider(provider: unknown, model: unknown): "openai" | 
 type ShadowConnector = ReturnType<typeof createOpenClawConnector>;
 
 function createShadowRuntimeConnector(cfg: ReturnType<typeof normalizeConfig>): ShadowConnector {
+  const semanticEmbedding = cfg.semanticReduction.embedding ?? {
+    provider: "none" as const,
+    requestTimeoutMs: 30000,
+  };
   return createOpenClawConnector({
     modules: [
       createStabilizerModule(),
       createPolicyModule({
-        summaryTriggerStableChars: 8000,
+        summaryGenerationMode: cfg.compaction.summaryGenerationMode,
+        summaryMaxOutputTokens: cfg.compaction.summaryMaxOutputTokens,
+        handoffEnabled: cfg.handoff.enabled,
+        handoffGenerationMode: cfg.handoff.handoffGenerationMode,
+        handoffMaxOutputTokens: cfg.handoff.handoffMaxOutputTokens,
+        handoffCooldownTurns: cfg.handoff.handoffCooldownTurns,
+        reductionSemanticEnabled: cfg.semanticReduction.enabled,
+        reductionSemanticMinChars: cfg.semanticReduction.minInputChars,
+        compactionEnabled: cfg.compaction.enabled,
+        compactionCooldownTurns: cfg.compaction.compactionCooldownTurns,
       }),
-      createMemoryStateModule({ maxSummaryChars: 2400 }),
-      createCompactionModule(),
+      createContextStateModule({ maxSummaryChars: 2400 }),
+      createCompactionModule({
+        generationMode: cfg.compaction.summaryGenerationMode,
+        fallbackToHeuristic: cfg.compaction.summaryFallbackToHeuristic,
+        compactionMaxOutputTokens: cfg.compaction.summaryMaxOutputTokens,
+        includeAssistantReply: cfg.compaction.includeAssistantReply,
+        compactionPrompt: cfg.compaction.summaryPrompt,
+        compactionPromptPath: cfg.compaction.summaryPromptPath,
+        resumePrefixPrompt: cfg.compaction.resumePrefixPrompt,
+        resumePrefixPromptPath: cfg.compaction.resumePrefixPromptPath,
+      }),
       createSummaryModule({
-        generationMode: "heuristic",
-        fallbackToHeuristic: true,
-        includeAssistantReply: true,
+        generationMode: cfg.compaction.summaryGenerationMode,
+        fallbackToHeuristic: cfg.compaction.summaryFallbackToHeuristic,
+        summaryMaxOutputTokens: cfg.compaction.summaryMaxOutputTokens,
+        includeAssistantReply: cfg.compaction.includeAssistantReply,
       }),
-      createReductionModule(),
+      createHandoffModule({
+        generationMode: cfg.handoff.handoffGenerationMode,
+        fallbackToHeuristic: cfg.handoff.handoffFallbackToHeuristic,
+        handoffMaxOutputTokens: cfg.handoff.handoffMaxOutputTokens,
+        includeAssistantReply: cfg.handoff.includeAssistantReply,
+        handoffPrompt: cfg.handoff.handoffPrompt,
+        handoffPromptPath: cfg.handoff.handoffPromptPath,
+        triggerEventType: ECOCLAW_EVENT_TYPES.POLICY_HANDOFF_REQUESTED,
+      }),
+      createReductionModule({
+        semanticLlmlingua2: {
+          enabled: cfg.semanticReduction.enabled,
+          pythonBin: cfg.semanticReduction.pythonBin,
+          timeoutMs: cfg.semanticReduction.timeoutMs,
+          modelPath: cfg.semanticReduction.llmlinguaModelPath,
+          targetRatio: cfg.semanticReduction.targetRatio,
+          minInputChars: cfg.semanticReduction.minInputChars,
+          minSavedChars: cfg.semanticReduction.minSavedChars,
+          preselectRatio: cfg.semanticReduction.preselectRatio,
+          maxChunkChars: cfg.semanticReduction.maxChunkChars,
+          embedding: {
+            provider: semanticEmbedding.provider,
+            modelPath: semanticEmbedding.modelPath,
+            apiBaseUrl: semanticEmbedding.apiBaseUrl,
+            apiKey: semanticEmbedding.apiKey,
+            apiModel: semanticEmbedding.apiModel,
+            requestTimeoutMs: semanticEmbedding.requestTimeoutMs,
+          },
+        },
+      }),
       createDecisionLedgerModule(),
     ],
     adapters: {
@@ -1463,7 +2088,7 @@ function createShadowRuntimeConnector(cfg: ReturnType<typeof normalizeConfig>): 
     },
     stateDir: cfg.stateDir,
     routing: {
-      autoForkOnPolicy: false,
+      autoForkOnPolicy: cfg.compaction.autoForkOnPolicy,
       physicalSessionPrefix: "shadow",
     },
     observability: {
@@ -1475,9 +2100,16 @@ function createShadowRuntimeConnector(cfg: ReturnType<typeof normalizeConfig>): 
 async function buildShadowTurnContext(
   event: any,
   topology: SessionTopologyManager,
+  sessionHint?: { sessionKey?: string; upstreamSessionId?: string } | null,
 ): Promise<RuntimeTurnContext | null> {
-  const sessionKey = extractSessionKey(event);
-  const userMessage = extractLastUserMessage(event).trim();
+  const sessionKey =
+    String(sessionHint?.sessionKey ?? "").trim() || extractSessionKey(event);
+  const upstreamSessionId =
+    String(sessionHint?.upstreamSessionId ?? "").trim() ||
+    extractOpenClawSessionId(event) ||
+    topology.getUpstreamSessionId(sessionKey) ||
+    sessionKey;
+  const userMessage = normalizeUserMessageText(extractLastUserMessage(event).trim());
   if (!userMessage) return null;
   const cmd = parseEcoClawCommand(userMessage);
   if (cmd.kind !== "none") return null;
@@ -1488,7 +2120,7 @@ async function buildShadowTurnContext(
     lastAssistant?.model ?? event?.model,
   );
   const model = String(lastAssistant?.model ?? event?.model ?? "unknown").trim() || "unknown";
-  const logicalSessionId = topology.getLogicalSessionId(sessionKey);
+  const logicalSessionId = topology.getLogicalSessionId(sessionKey, upstreamSessionId);
   const promptRoot = await extractOpenClawPromptRoot(event);
   const turnObservations = extractTurnObservations(event);
   const turnTools = turnObservations
@@ -1528,6 +2160,7 @@ async function buildShadowTurnContext(
     metadata: {
       sessionKey,
       logicalSessionId,
+      openclawSessionId: upstreamSessionId,
       openclawPromptRoot: promptRoot,
       turnTools,
       turnObservations,
@@ -1636,6 +2269,44 @@ module.exports = {
       return;
     }
 
+    const topology = createSessionTopologyManager();
+    const recentTurnBindings: Array<{
+      userMessage: string;
+      matchKey: string;
+      sessionKey: string;
+      upstreamSessionId?: string;
+      at: number;
+    }> = [];
+    const rememberTurnBinding = (userMessage: string, sessionKey: string, upstreamSessionId?: string) => {
+      const normalizedMessage = String(userMessage ?? "").trim();
+      const matchKey = normalizeTurnBindingMessage(normalizedMessage);
+      const normalizedSessionKey = String(sessionKey ?? "").trim();
+      if (!normalizedMessage || !matchKey || !normalizedSessionKey) return;
+      recentTurnBindings.push({
+        userMessage: normalizedMessage,
+        matchKey,
+        sessionKey: normalizedSessionKey,
+        upstreamSessionId: String(upstreamSessionId ?? "").trim() || undefined,
+        at: Date.now(),
+      });
+      while (recentTurnBindings.length > 128) recentTurnBindings.shift();
+      if (cfg.stateDir) {
+        persistRecentTurnBindingsToState(cfg.stateDir, recentTurnBindings);
+      }
+    };
+    const resolveTurnBinding = (userMessage: string) => {
+      const normalizedMessage = normalizeTurnBindingMessage(String(userMessage ?? "").trim());
+      if (!normalizedMessage) return null;
+      const persistedCandidates = cfg.stateDir ? loadRecentTurnBindingsFromState(cfg.stateDir) : [];
+      const candidates = [...recentTurnBindings, ...persistedCandidates];
+      for (let i = candidates.length - 1; i >= 0; i -= 1) {
+        const candidate = candidates[i];
+        if (candidate.matchKey !== normalizedMessage) continue;
+        if (Date.now() - candidate.at > 30 * 60 * 1000) continue;
+        return candidate;
+      }
+      return null;
+    };
     let proxyRuntime: Awaited<ReturnType<typeof startEmbeddedResponsesProxy>> | null = null;
     let proxyInitDone = false;
     let proxyInitPromise: Promise<void> | null = null;
@@ -1651,7 +2322,12 @@ module.exports = {
           proxyInitDone = true;
           return;
         }
-        proxyRuntime = await startEmbeddedResponsesProxy(cfg, logger);
+        proxyRuntime = await startEmbeddedResponsesProxy(
+          cfg,
+          logger,
+          topology,
+          resolveTurnBinding,
+        );
         if (!proxyRuntime) return;
         g.__ecoclaw_embedded_proxy_runtime__ = proxyRuntime;
         maybeRegisterProxyProvider(api, cfg, logger, proxyRuntime.baseUrl, proxyRuntime.upstream);
@@ -1665,15 +2341,28 @@ module.exports = {
       return proxyInitPromise;
     };
 
-    if (cfg.debugTapProviderTraffic) {
-      maybeInstallProviderTrafficTap(cfg, logger);
-    }
+    maybeInstallProviderTrafficTap(cfg, logger, topology, resolveTurnBinding);
     installLlmHookTap(api, cfg, logger);
-    const topology = createSessionTopologyManager();
     registerEcoClawCommand(api, logger, topology, cfg);
+    hookOn(api, "session_start", (event: any) => {
+      const sessionKey = extractSessionKey(event);
+      const upstreamSessionId = extractOpenClawSessionId(event);
+      if (!sessionKey || !upstreamSessionId) return;
+      topology.bindUpstreamSession(sessionKey, upstreamSessionId);
+      if (debugEnabled) {
+        logger.debug(
+          `[ecoclaw] session_start synced sessionKey=${sessionKey} openclawSessionId=${upstreamSessionId} ${topology.getStatus(sessionKey)}`,
+        );
+      }
+    });
     hookOn(api, "message_received", (event: any) => {
       const sessionKey = extractSessionKey(event);
+      const upstreamSessionId =
+        extractOpenClawSessionId(event) || topology.getUpstreamSessionId(sessionKey) || undefined;
       const userMessage = extractLastUserMessage(event);
+      if (userMessage.trim()) {
+        rememberTurnBinding(userMessage, sessionKey, upstreamSessionId);
+      }
       const cmd = parseEcoClawCommand(userMessage);
       if (cmd.kind !== "none") {
         if (cmd.kind === "status") {
@@ -1702,13 +2391,34 @@ module.exports = {
           }
         } else if (cmd.kind === "session_new") {
           const logical = topology.newSession(sessionKey);
-          logger.info(`[ecoclaw] session new -> ${topology.getStatus(sessionKey)} logical=${logical}`);
+          logger.info(
+            `[ecoclaw] session new -> ${topology.getStatus(sessionKey)} logical=${logical}`,
+          );
+        } else if (cmd.kind === "openclaw_session_new") {
+          logger.info(
+            `[ecoclaw] observed native /new on ${sessionKey}; waiting for OpenClaw session_start to publish the new sessionId`,
+          );
         } else {
           logger.info(`[ecoclaw] ${commandHelpText().replace(/\n/g, " | ")}`);
         }
       }
       if (!debugEnabled) return;
       logger.debug(`[ecoclaw] message_received session=${sessionKey}`);
+    });
+    hookOn(api, "llm_input", (event: any) => {
+      const userMessage = extractLastUserMessage(event);
+      const upstreamSessionId = extractOpenClawSessionId(event);
+      const sessionKey = upstreamSessionId || extractSessionKey(event);
+      if (userMessage.trim() && sessionKey.trim()) {
+        rememberTurnBinding(userMessage, sessionKey, upstreamSessionId || undefined);
+        if (upstreamSessionId) {
+          topology.bindUpstreamSession(sessionKey, upstreamSessionId);
+        }
+      }
+      if (!debugEnabled) return;
+      logger.debug(
+        `[ecoclaw] llm_input prompt-bound session=${sessionKey || "unknown"} openclawSessionId=${upstreamSessionId || "-"}`,
+      );
     });
 
     hookOn(api, "agent_end", async (event: any) => {
@@ -1723,7 +2433,8 @@ module.exports = {
         );
       }
       try {
-        const turnCtx = await buildShadowTurnContext(event, topology);
+        const sessionHint = resolveTurnBinding(extractLastUserMessage(event));
+        const turnCtx = await buildShadowTurnContext(event, topology, sessionHint);
         const turnResult = buildShadowTurnResult(event);
         if (!turnCtx || !turnResult) {
           if (debugEnabled || cfg.debugTapProviderTraffic) {

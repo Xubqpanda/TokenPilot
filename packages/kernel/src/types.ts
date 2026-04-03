@@ -109,6 +109,51 @@ export type PersistedTurnRecord = {
   error?: string;
 };
 
+export type PersistedMessageRole = "system" | "user" | "assistant" | "tool" | "context";
+
+export type PersistedMessageOrigin =
+  | "provider_observed"
+  | "synthetic_materialized"
+  | "manual_edit"
+  | "derived_artifact";
+
+export type PersistedMessageKind =
+  | "message"
+  | "summary"
+  | "checkpoint_seed"
+  | "handoff"
+  | "reduction"
+  | "context_snapshot"
+  | (string & {});
+
+export type PersistedMessageRecord = {
+  messageId: string;
+  sessionId: string;
+  branchId: string;
+  parentMessageId?: string;
+  turnId?: string;
+  role: PersistedMessageRole;
+  kind: PersistedMessageKind;
+  origin: PersistedMessageOrigin;
+  content: string;
+  createdAt: string;
+  source?: string;
+  replacesMessageIds?: string[];
+  derivedFromArtifactId?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type PersistedBranchRecord = {
+  branchId: string;
+  sessionId: string;
+  parentBranchId?: string;
+  forkedFromMessageId?: string;
+  headMessageId?: string;
+  createdAt: string;
+  source: string;
+  metadata?: Record<string, unknown>;
+};
+
 export type PersistedSessionMeta = {
   sessionId: string;
   createdAt: string;
@@ -118,6 +163,8 @@ export type PersistedSessionMeta = {
   apiFamily?: ApiFamily;
   lastStatus?: "ok" | "error";
   turnCount: number;
+  messageCount?: number;
+  branchCount?: number;
 };
 
 export type DecisionConfidenceLevel = "low" | "medium" | "high";

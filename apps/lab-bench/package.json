@@ -5,11 +5,12 @@
     "type":  "module",
     "scripts":  {
                     "dev":  "tsx src/index.ts",
+                    "demo": "tsx src/demo.ts",
                     "typecheck":  "tsc -p tsconfig.json --noEmit",
                     "build":  "tsc -p tsconfig.json"
                 },
     "dependencies":  {
-                         "@ecoclaw/layer-data": "workspace:*",
+                         "@ecoclaw/layer-context": "workspace:*",
                          "@ecoclaw/layer-decision": "workspace:*",
                          "@ecoclaw/layer-execution": "workspace:*",
                          "@ecoclaw/layer-orchestration": "workspace:*",

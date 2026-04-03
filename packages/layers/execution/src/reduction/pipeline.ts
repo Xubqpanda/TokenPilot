@@ -44,6 +44,38 @@ export function resolveReductionPasses(
         noteLabel: cfg.strategy ?? "rule",
       },
     },
+    {
+      id: "format_slimming",
+      phase: "after_call",
+      target: "result_content",
+      options: {
+        removeCodeFences: true,
+        collapseBlankLines: true,
+        trimTrailingSpaces: true,
+      },
+    },
+    {
+      id: "semantic_llmlingua2",
+      phase: "after_call",
+      target: "result_content",
+      options: {
+        enabled: cfg.semanticLlmlingua2?.enabled ?? false,
+        pythonBin: cfg.semanticLlmlingua2?.pythonBin ?? "python",
+        timeoutMs: cfg.semanticLlmlingua2?.timeoutMs ?? 120000,
+        modelPath: cfg.semanticLlmlingua2?.modelPath,
+        targetRatio: cfg.semanticLlmlingua2?.targetRatio ?? 0.55,
+        minInputChars: cfg.semanticLlmlingua2?.minInputChars ?? 4000,
+        minSavedChars: cfg.semanticLlmlingua2?.minSavedChars ?? 200,
+        preselectRatio: cfg.semanticLlmlingua2?.preselectRatio ?? 0.8,
+        maxChunkChars: cfg.semanticLlmlingua2?.maxChunkChars ?? 1400,
+        embeddingProvider: cfg.semanticLlmlingua2?.embedding?.provider ?? "none",
+        embeddingModelPath: cfg.semanticLlmlingua2?.embedding?.modelPath,
+        embeddingApiBaseUrl: cfg.semanticLlmlingua2?.embedding?.apiBaseUrl,
+        embeddingApiKey: cfg.semanticLlmlingua2?.embedding?.apiKey,
+        embeddingApiModel: cfg.semanticLlmlingua2?.embedding?.apiModel,
+        embeddingRequestTimeoutMs: cfg.semanticLlmlingua2?.embedding?.requestTimeoutMs ?? 30000,
+      },
+    },
   ];
 }
 

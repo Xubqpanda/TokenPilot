@@ -1,4 +1,6 @@
 import type {
+  PersistedBranchRecord,
+  PersistedMessageRecord,
   PersistedSessionMeta,
   PersistedTurnRecord,
   RuntimeTurnContext,
@@ -64,6 +66,15 @@ export type MetricsSink = {
 
 export type RuntimeStateStore = {
   appendTurn(record: PersistedTurnRecord): Promise<void>;
+  appendBranch(record: PersistedBranchRecord): Promise<void>;
+  appendMessages(records: PersistedMessageRecord[]): Promise<void>;
   upsertSessionMeta(sessionId: string, update: Partial<PersistedSessionMeta>): Promise<PersistedSessionMeta>;
+  readSessionMeta(sessionId: string): Promise<PersistedSessionMeta | null>;
+  listTurns(sessionId: string): Promise<PersistedTurnRecord[]>;
+  listBranches(sessionId: string): Promise<PersistedBranchRecord[]>;
+  listMessages(
+    sessionId: string,
+    options?: { branchId?: string },
+  ): Promise<PersistedMessageRecord[]>;
   writeSummary(sessionId: string, summary: string, source: string): Promise<void>;
 };

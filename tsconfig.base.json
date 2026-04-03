@@ -21,9 +21,9 @@
                                           "@ecoclaw/provider-anthropic":  [
                                                                           "packages/providers/anthropic/src/index.ts"
                                                                       ],
-                                          "@ecoclaw/layer-data": [
-                                                                      "packages/layers/data/src/index.ts"
-                                                                  ],
+                                          "@ecoclaw/layer-context": [
+                                                                         "packages/layers/context/src/index.ts"
+                                                                     ],
                                           "@ecoclaw/layer-decision": [
                                                                           "packages/layers/decision/src/index.ts"
                                                                       ],

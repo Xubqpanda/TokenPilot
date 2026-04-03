@@ -7,22 +7,32 @@ export const ECOCLAW_EVENT_TYPES = {
   STABILIZER_BEFORE_BUILD_EVALUATED: "stabilizer.before_build.evaluated",
   STABILIZER_AFTER_CALL_SKIPPED: "stabilizer.after_call.skipped",
   STABILIZER_AFTER_CALL_RECORDED: "stabilizer.after_call.recorded",
+  // Reduction
+  REDUCTION_BEFORE_CALL_RECORDED: "reduction.before_call.recorded",
+  REDUCTION_AFTER_CALL_RECORDED: "reduction.after_call.recorded",
   // Policy
   POLICY_SUMMARY_REQUESTED: "policy.summary.requested",
   POLICY_COMPACTION_REQUESTED: "policy.compaction.requested",
+  POLICY_HANDOFF_REQUESTED: "policy.handoff.requested",
   POLICY_CACHE_JITTER_DETECTED: "policy.cache.jitter.detected",
-  POLICY_CACHE_PROBE_DECIDED: "policy.cache.probe.decided",
-  POLICY_CACHE_PROBE_RESULT: "policy.cache.probe.result",
+  POLICY_CACHE_HEALTH_DECIDED: "policy.cache.health.decided",
+  POLICY_CACHE_HEALTH_RESULT: "policy.cache.health.result",
+  POLICY_REDUCTION_DECIDED: "policy.reduction.decided",
   // Compaction
   COMPACTION_PLAN_GENERATED: "compaction.plan.generated",
   COMPACTION_APPLY_EXECUTED: "compaction.apply.executed",
+  // Branch materialization
+  BRANCH_MATERIALIZED: "branch.materialized",
   // Decision ledger
   DECISION_L1_RECORDED: "decision.l1.recorded",
   // Summary
   SUMMARY_GENERATED: "summary.generated",
-  // Memory state
-  MEMORY_SEED_AVAILABLE: "memory.seed.available",
-  MEMORY_STATE_UPDATED: "memory.state.updated",
+  // Handoff
+  HANDOFF_REQUESTED: "handoff.requested",
+  HANDOFF_GENERATED: "handoff.generated",
+  // Context state
+  CONTEXT_STATE_AVAILABLE: "context.state.available",
+  CONTEXT_STATE_UPDATED: "context.state.updated",
 } as const;
 
 export type RuntimeEventType =

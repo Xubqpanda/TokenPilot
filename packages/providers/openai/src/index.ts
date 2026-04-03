@@ -17,10 +17,12 @@ export const openaiAdapter: ProviderAdapter = {
   },
   normalizeUsage(raw) {
     const usage = raw as any;
-    const inputTokens = toNum(usage?.input_tokens ?? usage?.prompt_tokens);
-    const outputTokens = toNum(usage?.output_tokens ?? usage?.completion_tokens);
+    const inputTokens = toNum(usage?.input_tokens ?? usage?.prompt_tokens ?? usage?.input);
+    const outputTokens = toNum(usage?.output_tokens ?? usage?.completion_tokens ?? usage?.output);
     const cachedTokens = toNum(
-      usage?.prompt_tokens_details?.cached_tokens ?? usage?.promptTokensDetails?.cachedTokens,
+      usage?.prompt_tokens_details?.cached_tokens ??
+        usage?.promptTokensDetails?.cachedTokens ??
+        usage?.cacheRead,
     );
     const cacheHitTokens = cachedTokens;
     const cacheHitRate =
