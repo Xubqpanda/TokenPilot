@@ -8,7 +8,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test tests/**/*.test.ts"
+    "test": "tsx --test tests/**/*.test.ts",
+    "fixtures:extract": "node --import tsx scripts/extract-reduction-fixtures.ts",
+    "fixtures:run": "node --import tsx scripts/run-reduction-fixtures.ts",
+    "fixtures:extract-turn-local": "node --import tsx scripts/extract-turn-local-fixtures.ts",
+    "fixtures:run-turn-local": "node --import tsx scripts/run-turn-local-compaction.ts",
+    "fixtures:ablation": "node --import tsx scripts/run-turn-local-ablation.ts"
   },
   "dependencies": {
     "@ecoclaw/kernel": "workspace:*"
