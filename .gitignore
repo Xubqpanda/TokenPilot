@@ -6,6 +6,13 @@ coverage/
 *.tsbuildinfo
 packages/openclaw-plugin/.tmp/
 packages/openclaw-plugin/*.tgz
+packages/layers/execution/.tmp/
+packages/layers/execution/fixtures/reduction/
+
+# Test fixtures and temporary directories
+packages/layers/execution/.ecoclaw/
+packages/layers/execution/fixtures/
+packages/layers/execution/scripts/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
