@@ -31,9 +31,9 @@ Package script bindings:
 
 ## Acceptance Helpers
 
-These scripts are still wired into `package.json` and are useful for targeted
-plugin-side validation. They are not the main benchmark harness, and they are
-not part of the published plugin payload.
+These scripts are retained as legacy plugin-side validation helpers. They are
+not part of the main benchmark harness, they are not part of the published
+plugin payload, and they are no longer exposed as package scripts.
 
 - `/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/scripts/e2e.sh`
 - `/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/scripts/cache_acceptance.sh`
@@ -43,18 +43,14 @@ not part of the published plugin payload.
 
 Current package script bindings:
 
-- `npm run dev:acceptance:e2e`
-- `npm run dev:acceptance:cache`
-- `npm run dev:acceptance:report`
-- `npm run dev:acceptance:semantic`
-- `npm run dev:acceptance:summary`
+- none
 
 ## Current Assessment
 
 These scripts are not dead code in the narrow sense, because:
 
-- they are still referenced by `package.json`
-- some are still referenced by the package README
+- they still encode targeted local validation flows
+- some are still useful as implementation references for future `experiments/`
 
 But they should be treated as:
 
@@ -78,14 +74,14 @@ Acceptance helpers and fixtures should remain local development tooling.
 Near-term guidance:
 
 1. keep release helpers intact
-2. keep acceptance helpers available as legacy dev tooling
+2. keep acceptance helpers available only as legacy dev tooling on disk
 3. stop expanding these scripts with benchmark-specific logic
 4. move benchmark documentation and benchmark runtime setup out of this package
 
 Later cleanup options:
 
 1. rename acceptance scripts to align with the future `TokenPilot` brand
-2. trim semantic/summary E2E if those runtime paths are no longer part of the
-   supported surface
+2. delete semantic/summary/cache acceptance helpers once equivalent checks live
+   under the future top-level `experiments/` tree
 3. move any remaining benchmark-like flows into the future top-level
    `experiments/` tree
