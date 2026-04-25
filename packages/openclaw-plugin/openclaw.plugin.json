@@ -134,19 +134,14 @@
           "eviction": {
             "type": "boolean",
             "default": false,
-            "description": "Enable eviction execution module interface (currently noop scaffold)."
-          },
-          "decisionLedger": {
-            "type": "boolean",
-            "default": true,
-            "description": "Enable decision ledger reporting module."
+            "description": "Enable eviction execution module."
           }
         }
       },
       "handoff": {
         "type": "object",
         "additionalProperties": false,
-        "description": "Task handoff generation controls for future sub-agent or continuation workflows.",
+        "description": "Task handoff generation controls.",
         "properties": {
           "enabled": {
             "type": "boolean",
@@ -189,7 +184,7 @@
       "eviction": {
         "type": "object",
         "additionalProperties": false,
-        "description": "Eviction policy interface scaffold. Current runtime behavior is noop; fields are reserved for upcoming eviction implementations.",
+        "description": "Task-level eviction policy controls for canonical history.",
         "properties": {
           "enabled": {
             "type": "boolean",

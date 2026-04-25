@@ -29,7 +29,6 @@ export type EcoClawPluginConfig = {
     policy?: boolean;
     reduction?: boolean;
     eviction?: boolean;
-    decisionLedger?: boolean;
   };
   summary?: {
     summaryGenerationMode?: "llm_full_context" | "heuristic";
@@ -182,7 +181,6 @@ export function normalizeConfig(
       policy: modules.policy ?? true,
       reduction: modules.reduction ?? true,
       eviction: modules.eviction ?? false,
-      decisionLedger: modules.decisionLedger ?? true,
     },
     summary: {
       summaryGenerationMode: summary.summaryGenerationMode === "llm_full_context" ? "llm_full_context" : "heuristic",

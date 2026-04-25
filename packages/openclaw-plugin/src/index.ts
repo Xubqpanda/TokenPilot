@@ -158,7 +158,7 @@ const __testHooks = {
 
 module.exports = {
   id: "ecoclaw",
-  name: "EcoClaw Runtime Optimizer",
+  name: "TokenPilot Runtime Optimizer",
   __testHooks,
 
   register(api: any) {
