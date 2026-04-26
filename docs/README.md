@@ -13,6 +13,7 @@ directory in this repo.
 - [Canonical Design](architecture/canonical-design.md) - Transcript/canonical/eviction design
 - [Plugin Semantic Grouping](architecture/plugin-semantic-grouping.md) - Current semantic buckets for plugin modules
 - [Plugin Script Inventory](architecture/plugin-script-inventory.md) - Status of plugin-side helper scripts
+- [Runtime ID Inventory](architecture/ecoclaw-runtime-id-inventory.md) - Current `ecoclaw` naming surface and migration risk classes
 
 ## Plans
 
