@@ -16,6 +16,7 @@ directory in this repo.
 - [Plugin Script Inventory](architecture/plugin-script-inventory.md) - Status of plugin-side helper scripts
 - [Runtime ID Inventory](architecture/ecoclaw-runtime-id-inventory.md) - Current `ecoclaw` naming surface and migration risk classes
 - [Experiments Consolidation Plan](architecture/experiments-consolidation-plan.md) - How benchmark assets should merge into `experiments/`
+- [PinchBench Experiments README](../experiments/pinchbench/README.md) - Narrowed first-pass experiments merge target
 
 ## Plans
 
