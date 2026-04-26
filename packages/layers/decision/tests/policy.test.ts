@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ECOCLAW_EVENT_TYPES, findRuntimeEventsByType } from "@ecoclaw/kernel";
+import { RUNTIME_EVENT_TYPES, findRuntimeEventsByType } from "@ecoclaw/kernel";
 import { createPolicyModule, readPolicyOnlineMetadata } from "../src/policy.js";
 import { createContextViewSnapshot, createTurnContext } from "./test-utils.js";
 
@@ -100,7 +100,7 @@ test("policy requests handoff from hard-loop locality signals", async () => {
   assert.ok(policy.decisions.handoff.reasons.includes("locality_hard_loop_detected"));
   assert.deepEqual(policy.decisions.locality.handoffCandidateMessageIds, ["m3", "m4", "m5"]);
   assert.equal(
-    findRuntimeEventsByType(nextCtx.metadata, ECOCLAW_EVENT_TYPES.POLICY_HANDOFF_REQUESTED).length,
+    findRuntimeEventsByType(nextCtx.metadata, RUNTIME_EVENT_TYPES.POLICY_HANDOFF_REQUESTED).length,
     1,
   );
 });

@@ -6,7 +6,7 @@ import type { RuntimeTurnContext } from "../../kernel/src/types.js";
 import type { PolicyModuleConfig } from "../../layers/decision/src/policy.js";
 import { applyPolicyMonitors } from "./runtime/register.js";
 
-export type EcoClawPluginConfig = {
+export type PluginRuntimeConfig = {
   enabled?: boolean;
   logLevel?: "info" | "debug";
   proxyBaseUrl?: string;
@@ -101,8 +101,8 @@ const NULL_RUNTIME: RuntimeModuleRuntime = {
 
 export function normalizeConfig(
   raw: unknown,
-): Required<Omit<EcoClawPluginConfig, "proxyBaseUrl" | "proxyApiKey">> & Pick<EcoClawPluginConfig, "proxyBaseUrl" | "proxyApiKey"> {
-  const cfg = (raw ?? {}) as EcoClawPluginConfig;
+): Required<Omit<PluginRuntimeConfig, "proxyBaseUrl" | "proxyApiKey">> & Pick<PluginRuntimeConfig, "proxyBaseUrl" | "proxyApiKey"> {
+  const cfg = (raw ?? {}) as PluginRuntimeConfig;
   const defaultStateDir = join(homedir(), ".openclaw", "ecoclaw-plugin-state");
   const stateDir = cfg.stateDir ?? defaultStateDir;
   const modules = cfg.modules ?? {};

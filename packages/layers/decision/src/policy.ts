@@ -1,7 +1,7 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
-  ECOCLAW_EVENT_TYPES,
+  RUNTIME_EVENT_TYPES,
   appendContextEvent,
   appendResultEvent,
   resolveApiFamily,
@@ -1810,7 +1810,7 @@ export function createPolicyModule(cfg: PolicyModuleConfig = {}): RuntimeModule 
 
       if (policy.decisions.reduction.enabled) {
         nextCtx = appendContextEvent(nextCtx, {
-          type: ECOCLAW_EVENT_TYPES.POLICY_REDUCTION_DECIDED,
+          type: RUNTIME_EVENT_TYPES.POLICY_REDUCTION_DECIDED,
           source: "module-policy",
           at: new Date().toISOString(),
           payload: {
@@ -1828,7 +1828,7 @@ export function createPolicyModule(cfg: PolicyModuleConfig = {}): RuntimeModule 
 
       if (stabilizerEligible && config.cacheHealthEnabled && analysis.cacheHealth.supported) {
         nextCtx = appendContextEvent(nextCtx, {
-          type: ECOCLAW_EVENT_TYPES.POLICY_CACHE_HEALTH_DECIDED,
+          type: RUNTIME_EVENT_TYPES.POLICY_CACHE_HEALTH_DECIDED,
           source: "module-policy",
           at: new Date().toISOString(),
           payload: {
@@ -1849,7 +1849,7 @@ export function createPolicyModule(cfg: PolicyModuleConfig = {}): RuntimeModule 
       if (policy.decisions.handoff.requested) {
         state.lastHandoffRequestTurn = state.completedTurns;
         nextCtx = appendContextEvent(nextCtx, {
-          type: ECOCLAW_EVENT_TYPES.POLICY_HANDOFF_REQUESTED,
+          type: RUNTIME_EVENT_TYPES.POLICY_HANDOFF_REQUESTED,
           source: "module-policy",
           at: new Date().toISOString(),
           payload: {
@@ -1876,7 +1876,7 @@ export function createPolicyModule(cfg: PolicyModuleConfig = {}): RuntimeModule 
       state.lastSummaryRequestTurn = state.completedTurns;
       stateBySession.set(ctx.sessionId, state);
       return appendContextEvent(nextCtx, {
-        type: ECOCLAW_EVENT_TYPES.POLICY_SUMMARY_REQUESTED,
+        type: RUNTIME_EVENT_TYPES.POLICY_SUMMARY_REQUESTED,
         source: "module-policy",
         at: new Date().toISOString(),
         payload: {
@@ -1942,7 +1942,7 @@ export function createPolicyModule(cfg: PolicyModuleConfig = {}): RuntimeModule 
         }
         stateBySession.set(ctx.sessionId, state);
         result = appendResultEvent(result, {
-          type: ECOCLAW_EVENT_TYPES.POLICY_CACHE_HEALTH_RESULT,
+          type: RUNTIME_EVENT_TYPES.POLICY_CACHE_HEALTH_RESULT,
           source: "module-policy",
           at: new Date().toISOString(),
           payload: {

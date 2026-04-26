@@ -2,7 +2,7 @@
 import { rewriteCanonicalState, syncCanonicalStateFromTranscript } from "./canonical/rewrite.js";
 import { estimateMessagesChars, saveCanonicalState } from "./canonical/state.js";
 
-export function createEcoClawContextEngine(cfg: any, logger: any, deps: any) {
+export function createPluginContextEngine(cfg: any, logger: any, deps: any) {
   const canonicalMessageTaskIdsBound = (message: Record<string, unknown>): string[] => deps.canonicalMessageTaskIds(message, deps.asRecord);
   return {
     info: {

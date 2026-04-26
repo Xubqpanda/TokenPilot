@@ -1,5 +1,5 @@
 import {
-  ECOCLAW_EVENT_TYPES,
+  RUNTIME_EVENT_TYPES,
   appendContextEvent,
   appendResultEvent,
   findRuntimeEventsByType,
@@ -175,7 +175,7 @@ export function createDecisionLedgerModule(cfg: DecisionLedgerModuleConfig = {})
       };
 
       return appendContextEvent(nextCtx, {
-        type: ECOCLAW_EVENT_TYPES.DECISION_L1_RECORDED,
+        type: RUNTIME_EVENT_TYPES.DECISION_L1_RECORDED,
         source: "module-decision-ledger",
         at: plan.at,
         payload: {
@@ -202,7 +202,7 @@ export function createDecisionLedgerModule(cfg: DecisionLedgerModuleConfig = {})
       const outputTokens = mainUsage.outputTokens ?? 0;
       const cacheReadTokens = mainUsage.cacheReadTokens ?? 0;
 
-      const summaryEvents = findRuntimeEventsByType(result.metadata, ECOCLAW_EVENT_TYPES.SUMMARY_GENERATED);
+      const summaryEvents = findRuntimeEventsByType(result.metadata, RUNTIME_EVENT_TYPES.SUMMARY_GENERATED);
       const latestSummaryPayload =
         summaryEvents.length > 0
           ? ((summaryEvents[summaryEvents.length - 1]?.payload ?? {}) as Record<string, unknown>)
@@ -389,7 +389,7 @@ export function createDecisionLedgerModule(cfg: DecisionLedgerModuleConfig = {})
       };
 
       return appendResultEvent(nextResult, {
-        type: ECOCLAW_EVENT_TYPES.DECISION_L1_RECORDED,
+        type: RUNTIME_EVENT_TYPES.DECISION_L1_RECORDED,
         source: "module-decision-ledger",
         at: now,
         payload: {

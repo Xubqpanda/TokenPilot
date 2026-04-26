@@ -86,7 +86,7 @@ import {
   MEMORY_FAULT_RECOVER_TOOL_NAME,
 } from "./recovery/common.js";
 import {
-  EcoClawPluginConfig,
+  PluginRuntimeConfig,
   PluginLogger,
   applyPolicyBeforeCall,
   asRecord,
@@ -95,7 +95,7 @@ import {
   normalizeConfig,
   safeId,
 } from "./config.js";
-import { createEcoClawContextEngine } from "./context-engine.js";
+import { createPluginContextEngine } from "./context-engine.js";
 import { registerRuntime } from "./runtime/register.js";
 import {
   injectMemoryFaultProtocolInstructions,
@@ -190,7 +190,7 @@ module.exports = {
     }
 
     if (cfg.contextEngine.enabled && typeof api.registerContextEngine === "function") {
-      api.registerContextEngine("ecoclaw-context", () => createEcoClawContextEngine(cfg, logger, {
+      api.registerContextEngine("ecoclaw-context", () => createPluginContextEngine(cfg, logger, {
         appendTaskStateTrace,
         readTranscriptEntriesForSession,
         transcriptMessageStableId,

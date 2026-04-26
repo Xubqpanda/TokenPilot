@@ -101,15 +101,15 @@ refactor after the runtime ID layer has a compatibility plan.
 #### Types and factories
 
 - [config.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/config.ts)
-  - `EcoClawPluginConfig`
+  - `PluginRuntimeConfig`
 - [context-engine.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-engine.ts)
-  - `createEcoClawContextEngine`
+  - `createPluginContextEngine`
 
 #### Event names and metadata keys
 
 - [packages/kernel/src/events.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/kernel/src/events.ts)
-  - `ECOCLAW_EVENTS_METADATA_KEY`
-  - `ECOCLAW_EVENT_TYPES`
+  - `RUNTIME_EVENTS_METADATA_KEY`
+  - `RUNTIME_EVENT_TYPES`
 
 #### Test fixtures and helper names
 

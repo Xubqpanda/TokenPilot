@@ -1,8 +1,8 @@
 import type { RuntimeTurnContext, RuntimeTurnResult } from "./types.js";
 
-export const ECOCLAW_EVENTS_METADATA_KEY = "ecoclawEvents";
+export const RUNTIME_EVENTS_METADATA_KEY = "ecoclawEvents";
 
-export const ECOCLAW_EVENT_TYPES = {
+export const RUNTIME_EVENT_TYPES = {
   // Stabilizer
   STABILIZER_BEFORE_BUILD_EVALUATED: "stabilizer.before_build.evaluated",
   STABILIZER_AFTER_CALL_SKIPPED: "stabilizer.after_call.skipped",
@@ -32,7 +32,7 @@ export const ECOCLAW_EVENT_TYPES = {
 } as const;
 
 export type RuntimeEventType =
-  | (typeof ECOCLAW_EVENT_TYPES)[keyof typeof ECOCLAW_EVENT_TYPES]
+  | (typeof RUNTIME_EVENT_TYPES)[keyof typeof RUNTIME_EVENT_TYPES]
   | (string & {});
 
 export type RuntimeEvent<TPayload = Record<string, unknown>> = {
@@ -43,7 +43,7 @@ export type RuntimeEvent<TPayload = Record<string, unknown>> = {
 };
 
 function toEventList(metadata?: Record<string, unknown>): RuntimeEvent[] {
-  const raw = metadata?.[ECOCLAW_EVENTS_METADATA_KEY];
+  const raw = metadata?.[RUNTIME_EVENTS_METADATA_KEY];
   if (!Array.isArray(raw)) return [];
   return raw.filter(
     (v): v is RuntimeEvent =>
@@ -62,7 +62,7 @@ export function appendRuntimeEvent(
   const nextEvents = [...toEventList(metadata), event];
   return {
     ...(metadata ?? {}),
-    [ECOCLAW_EVENTS_METADATA_KEY]: nextEvents,
+    [RUNTIME_EVENTS_METADATA_KEY]: nextEvents,
   };
 }
 
