@@ -79,7 +79,7 @@ def grade(transcript: list, workspace_path: str) -> dict:
 
     # Helper to extract numbers from text
     def extract_number(text):
-        numbers = re.findall(r'[\d,]+', text)
+        numbers = re.findall(r'\d[\d,]*', text)
         for n in numbers:
             val = int(n.replace(',', ''))
             if val > 0:
