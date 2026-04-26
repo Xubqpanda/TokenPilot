@@ -346,7 +346,7 @@
   - `response.output_item.done`
   - `response.output_text.delta/done`
 - but `response.completed.response.output` could be empty
-- current OpenClaw/EcoClaw parsing path relies too heavily on the completed response body
+- current OpenClaw/plugin parsing path relies too heavily on the completed response body
 
 **Operational Decision**:
 - revert benchmark upstream back to `kuaipao`
@@ -438,7 +438,7 @@ Caveat:
 
 - Why this was confusing:
   - OpenClaw transcript persistence does not use the passed `--session-id` as a stable on-disk filename; `lib_agent.py` already had to resolve the real transcript via `sessions.json` / recent `.jsonl`.
-  - Because EcoClaw also maintains its own canonical history / session topology, some method runs still looked "continual", which masked the benchmark bug.
+  - Because the plugin also maintains its own canonical history / session topology, some method runs still looked "continual", which masked the benchmark bug.
 
 - Fix:
   - `continuous` mode now keeps one active session timeline across tasks.
@@ -514,7 +514,7 @@ Caveat:
 
 **Resolution**:
 - Judge restriction now only patches the judge agent's denied tools.
-- It no longer edits global EcoClaw module config.
+- It no longer edits global plugin module config.
 
 **Verification**:
 - In run `10192`, judge setup no longer triggered gateway reload, and the main plugin config remained stable across grading.
@@ -526,7 +526,7 @@ Caveat:
 **Severity**: Medium
 
 **Phenomenon**:
-- During the `EcoClaw -> TokenPilot` transition, user-facing docs and metadata
+- During the `legacy brand -> TokenPilot` transition, user-facing docs and metadata
   were safe to rename quickly, but runtime ids, provider prefixes, state paths,
   and config slots were still tightly coupled to benchmark/runtime behavior.
 - A naive global rename would have mixed harmless branding edits with

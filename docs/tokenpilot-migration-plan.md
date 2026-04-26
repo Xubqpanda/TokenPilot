@@ -1,8 +1,11 @@
 # TokenPilot Migration Plan
 
-This document defines how to migrate the current `EcoClaw` codebase into the `TokenPilot` brand without breaking the existing runtime, benchmark pipeline, or historical experiment assets.
+This document defines how to migrate the current codebase from its legacy
+project brand into the `TokenPilot` brand without breaking the existing
+runtime, benchmark pipeline, or historical experiment assets.
 
-The migration should be staged. Do not attempt a global `EcoClaw -> TokenPilot` replacement in one pass.
+The migration should be staged. Do not attempt a global legacy-name ->
+`TokenPilot` replacement in one pass.
 
 ## Goal
 
@@ -286,7 +289,7 @@ But new docs should point to the new `TokenPilot` naming.
 Recommended rule:
 
 - write new docs with `TokenPilot`
-- keep runtime compatible with `EcoClaw` until the benchmark pipeline is fully revalidated
+- keep runtime compatible with legacy runtime identifiers until the benchmark pipeline is fully revalidated
 
 ## Definition of Done
 
@@ -296,7 +299,7 @@ The rename should only be considered complete when all of the following are true
 - the main runtime passes config validation
 - continual baseline and method runs behave correctly
 - benchmark assets have a documented home under the main repository
-- no critical script still requires `EcoClaw` naming to function
+- no critical script still requires legacy branding to function
 - compatibility aliases are either intentionally retained or explicitly removed
 
 ## Immediate Next Step

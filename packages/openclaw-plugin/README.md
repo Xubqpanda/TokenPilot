@@ -13,14 +13,14 @@ Current runtime responsibilities:
 
 For a higher-level semantic map of the current module boundaries, see:
 
-- [`docs/architecture/plugin-semantic-grouping.md`](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/docs/architecture/plugin-semantic-grouping.md)
+- [`docs/architecture/plugin-semantic-grouping.md`](../../docs/architecture/plugin-semantic-grouping.md)
 
 ## Install
 
 Release-style install:
 
 ```bash
-cd /mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin
+cd /path/to/tokenpilot/packages/openclaw-plugin
 npm run install:release
 ```
 
@@ -40,12 +40,12 @@ mixing release and load-path installs. The current sanity workflow is:
 
 See:
 
-- [`docs/run-guide.md`](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/docs/run-guide.md)
+- [`docs/run-guide.md`](../../docs/run-guide.md)
 
 ## Build
 
 ```bash
-cd /mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin
+cd /path/to/tokenpilot/packages/openclaw-plugin
 corepack pnpm build
 corepack pnpm typecheck
 ```
@@ -92,7 +92,7 @@ rg 'stable_prefix_rewrite|proxy_before_call_rewrite|proxy_after_call_rewrite|too
 
 The runtime sanity guide lives in:
 
-- [`docs/run-guide.md`](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/docs/run-guide.md)
+- [`docs/run-guide.md`](../../docs/run-guide.md)
 
 ## Package Scripts
 
@@ -111,4 +111,4 @@ stay outside this package and eventually live under the top-level
 
 Script inventory:
 
-- [`docs/architecture/plugin-script-inventory.md`](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/docs/architecture/plugin-script-inventory.md)
+- [`docs/architecture/plugin-script-inventory.md`](../../docs/architecture/plugin-script-inventory.md)
