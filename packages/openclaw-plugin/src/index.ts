@@ -160,8 +160,8 @@ module.exports = {
     }
 
     if (cfg.hooks.toolResultPersist) {
-      hookOn(api, "tool_result_persist", async (event: any) => {
-        const out = await applyToolResultPersistPolicy(event, cfg, logger, {
+      hookOn(api, "tool_result_persist", (event: any) => {
+        const out = applyToolResultPersistPolicy(event, cfg, logger, {
           appendTaskStateTrace,
           ensureContextSafeDetails,
           extractToolMessageText,

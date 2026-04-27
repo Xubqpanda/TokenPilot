@@ -1,10 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createHash } from "node:crypto";
-import { join } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import {
-  archiveContent,
+  buildArchiveLocation,
   buildRecoveryHint,
 } from "../../execution/archive-recovery/index.js";
+import { hashText } from "../../execution/archive-recovery/archive-paths.js";
 
 function buildToolResultPreview(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
@@ -15,6 +17,62 @@ function toolInlineLimit(toolName: string): number {
   if (toolName === "read") return 12_000;
   if (toolName === "exec" || toolName === "bash" || toolName === "web_fetch") return 4_000;
   return 8_000;
+}
+
+
+function updateArchiveLookupSync(
+  dataKey: string,
+  archivePath: string,
+  archiveDir: string,
+): void {
+  const keyDir = join(archiveDir, "keys");
+  const keyPath = join(keyDir, `${hashText(dataKey)}.json`);
+  mkdirSync(keyDir, { recursive: true });
+  writeFileSync(
+    keyPath,
+    JSON.stringify({ dataKey, archivePath }, null, 2),
+    "utf8",
+  );
+
+  const lookupPath = join(archiveDir, "key-lookup.json");
+  let lookup: Record<string, string> = {};
+  try {
+    lookup = JSON.parse(readFileSync(lookupPath, "utf8")) as Record<string, string>;
+  } catch {
+    lookup = {};
+  }
+  lookup[dataKey] = archivePath;
+  writeFileSync(lookupPath, JSON.stringify(lookup, null, 2), "utf8");
+}
+
+function archiveContentSync(params: {
+  sessionId: string;
+  segmentId: string;
+  sourcePass: string;
+  toolName: string;
+  dataKey: string;
+  originalText: string;
+  archiveDir: string;
+  metadata?: Record<string, unknown>;
+}): { archivePath: string; archiveDir: string } {
+  const { archiveDir, archivePath } = buildArchiveLocation(params);
+  mkdirSync(dirname(archivePath), { recursive: true });
+  const entry = {
+    schemaVersion: 1,
+    kind: `${params.sourcePass}_archive`,
+    sessionId: params.sessionId,
+    segmentId: params.segmentId,
+    sourcePass: params.sourcePass,
+    toolName: params.toolName,
+    dataKey: params.dataKey,
+    originalText: params.originalText,
+    originalSize: params.originalText.length,
+    archivedAt: new Date().toISOString(),
+    metadata: params.metadata,
+  };
+  writeFileSync(archivePath, `${JSON.stringify(entry, null, 2)}\n`, "utf8");
+  updateArchiveLookupSync(params.dataKey, archivePath, archiveDir);
+  return { archivePath, archiveDir };
 }
 
 function resolveToolNameFromPersistEvent(event: any): string {
@@ -35,12 +93,12 @@ type PersistHelpers = {
   safeId: (value: string) => string;
 };
 
-export async function applyToolResultPersistPolicy(
+export function applyToolResultPersistPolicy(
   event: any,
   cfg: { stateDir: string },
   logger: { warn: (message: string) => void },
   helpers: PersistHelpers,
-): Promise<{ message: Record<string, unknown> } | undefined> {
+): { message: Record<string, unknown> } | undefined {
   const message = event?.message;
   if (!message || typeof message !== "object") return undefined;
   const rawMessage = message as Record<string, unknown>;
@@ -67,7 +125,7 @@ export async function applyToolResultPersistPolicy(
 
   let outputFile: string | undefined;
   try {
-    const archived = await archiveContent({
+    const archived = archiveContentSync({
       sessionId: "proxy-session",
       segmentId: callId || `${toolPart}-${digest}`,
       sourcePass: "tool_result_persist",
@@ -99,7 +157,7 @@ export async function applyToolResultPersistPolicy(
     : "";
 
   if (cfg.stateDir) {
-    await helpers.appendTaskStateTrace(cfg.stateDir, {
+    void helpers.appendTaskStateTrace(cfg.stateDir, {
       stage: "tool_result_persist_applied",
       sessionId: String(event?.sessionId ?? event?.session_id ?? "proxy-session"),
       toolName: toolName || "tool",
@@ -115,7 +173,10 @@ export async function applyToolResultPersistPolicy(
   return {
     message: {
       ...rawMessage,
-      content: `${notice}\n\n${preview}${recoveryHint}`,
+      content: [{
+        type: "text",
+        text: `${notice}\n\n${preview}${recoveryHint}`,
+      }],
       details: helpers.ensureContextSafeDetails(rawMessage.details, {
         resultMode: outputFile ? "artifact" : "inline-fallback",
         excludedFromContext: true,

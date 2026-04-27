@@ -605,15 +605,75 @@ def _load_transcript(
 
 def _parse_jsonl_file(path: Path) -> List[Dict[str, Any]]:
     """Parse a JSONL transcript file into a list of dicts."""
+    def _split_candidate_records(raw: str) -> List[str]:
+        records: List[str] = []
+        current = ""
+        for line in raw.splitlines():
+            if line.startswith('{"type":'):
+                if current.strip():
+                    records.append(current)
+                current = line
+            elif current:
+                current = f"{current}\n{line}"
+        if current.strip():
+            records.append(current)
+        return records
+
+    def _salvage_tool_result_record(candidate: str) -> Optional[Dict[str, Any]]:
+        text = str(candidate or "")
+        if '"type":"message"' not in text or '"role":"toolResult"' not in text:
+            return None
+
+        def _extract(pattern: str) -> Optional[str]:
+            match = re.search(pattern, text)
+            return match.group(1) if match else None
+
+        tool_name = _extract(r'"toolName":"([^"\n]+)"') or "tool"
+        tool_call_id = _extract(r'"toolCallId":"([^"\n]+)"')
+        salvaged: Dict[str, Any] = {
+            "type": "message",
+            "message": {
+                "role": "toolResult",
+                "toolName": tool_name,
+                "content": [{
+                    "type": "text",
+                    "text": f"[Unparseable toolResult omitted: {tool_name}]",
+                }],
+                "details": {
+                    "contextSafe": {
+                        "transcriptSalvaged": True,
+                        "transcriptSalvageReason": "unparseable_tool_result",
+                    }
+                },
+            },
+        }
+        record_id = _extract(r'"id":"([^"\n]+)"')
+        parent_id = _extract(r'"parentId":"([^"\n]+)"')
+        timestamp = _extract(r'"timestamp":"([^"\n]+)"')
+        if record_id:
+            salvaged["id"] = record_id
+        if parent_id:
+            salvaged["parentId"] = parent_id
+        if timestamp:
+            salvaged["timestamp"] = timestamp
+        if tool_call_id:
+            salvaged["message"]["toolCallId"] = tool_call_id
+        return salvaged
+
     entries: List[Dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
+    raw = path.read_text(encoding="utf-8")
+    for candidate in _split_candidate_records(raw):
+        if not candidate.strip():
             continue
         try:
-            entries.append(json.loads(line))
+            entries.append(json.loads(candidate))
         except json.JSONDecodeError as exc:
+            salvaged = _salvage_tool_result_record(candidate)
+            if salvaged is not None:
+                entries.append(salvaged)
+                continue
             logger.warning("Failed to parse transcript line in %s: %s", path.name, exc)
-            entries.append({"raw": line, "parse_error": str(exc)})
+            entries.append({"raw": candidate, "parse_error": str(exc)})
     return entries
 
 

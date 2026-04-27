@@ -481,6 +481,52 @@ export function transcriptMessageStableId(row: TranscriptSessionRow): string {
   return createHash("sha256").update(basis).digest("hex").slice(0, 20);
 }
 
+function splitTranscriptCandidateRecords(raw: string): string[] {
+  const records: string[] = [];
+  let current = "";
+  for (const line of String(raw ?? "").split(/\r?\n/)) {
+    if (line.startsWith('{"type":')) {
+      if (current.trim()) records.push(current);
+      current = line;
+    } else if (current) {
+      current += `\n${line}`;
+    }
+  }
+  if (current.trim()) records.push(current);
+  return records;
+}
+
+function salvageTranscriptMessageRow(candidate: string): TranscriptSessionRow | null {
+  const text = String(candidate ?? "");
+  if (!text.includes('"type":"message"')) return null;
+  if (!text.includes('"role":"toolResult"')) return null;
+  const id = text.match(/"id":"([^"\n]+)"/)?.[1];
+  const parentId = text.match(/"parentId":"([^"\n]+)"/)?.[1];
+  const timestamp = text.match(/"timestamp":"([^"\n]+)"/)?.[1];
+  const toolCallId = text.match(/"toolCallId":"([^"\n]+)"/)?.[1];
+  const toolName = text.match(/"toolName":"([^"\n]+)"/)?.[1] ?? 'tool';
+  return {
+    id,
+    parentId,
+    timestamp,
+    message: {
+      role: 'toolResult',
+      ...(toolCallId ? { toolCallId } : {}),
+      toolName,
+      content: [{
+        type: 'text',
+        text: `[Unparseable toolResult omitted: ${toolName}]`,
+      }],
+      details: {
+        contextSafe: {
+          transcriptSalvaged: true,
+          transcriptSalvageReason: 'unparseable_tool_result',
+        },
+      },
+    },
+  };
+}
+
 export async function readTranscriptEntriesForSession(sessionId: string): Promise<TranscriptSessionRow[] | null> {
   const transcriptPath = await findTranscriptPathForSession(sessionId);
   if (!transcriptPath) return null;
@@ -491,8 +537,8 @@ export async function readTranscriptEntriesForSession(sessionId: string): Promis
     return null;
   }
   const entries: TranscriptSessionRow[] = [];
-  for (const line of raw.split(/\r?\n/)) {
-    const trimmed = line.trim();
+  for (const candidate of splitTranscriptCandidateRecords(raw)) {
+    const trimmed = candidate.trim();
     if (!trimmed) continue;
     try {
       const row = JSON.parse(trimmed) as Record<string, unknown>;
@@ -506,7 +552,8 @@ export async function readTranscriptEntriesForSession(sessionId: string): Promis
         message: structuredClone(message as Record<string, unknown>),
       });
     } catch {
-      // Ignore malformed transcript rows.
+      const salvaged = salvageTranscriptMessageRow(trimmed);
+      if (salvaged) entries.push(salvaged);
     }
   }
   return entries;
