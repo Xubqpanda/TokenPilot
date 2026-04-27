@@ -94,6 +94,41 @@ export function workspaceArchiveDirCandidates(workspaceDir: string): string[] {
   ];
 }
 
+export function archiveDirWriteTargets(archiveDir: string): string[] {
+  const trimmed = archiveDir.trim();
+  if (trimmed.endsWith(`/${LEGACY_WORKSPACE_ARCHIVE_DIRNAME}`) || trimmed.endsWith(`\\${LEGACY_WORKSPACE_ARCHIVE_DIRNAME}`)) {
+    return [
+      trimmed,
+      trimmed.replace(LEGACY_WORKSPACE_ARCHIVE_DIRNAME, NEXT_WORKSPACE_ARCHIVE_DIRNAME),
+    ];
+  }
+  if (trimmed.endsWith(`/${NEXT_WORKSPACE_ARCHIVE_DIRNAME}`) || trimmed.endsWith(`\\${NEXT_WORKSPACE_ARCHIVE_DIRNAME}`)) {
+    return [
+      trimmed.replace(NEXT_WORKSPACE_ARCHIVE_DIRNAME, LEGACY_WORKSPACE_ARCHIVE_DIRNAME),
+      trimmed,
+    ];
+  }
+  if (trimmed.includes(`/${LEGACY_PLUGIN_NAMESPACE_DIR}/`) || trimmed.includes(`\\${LEGACY_PLUGIN_NAMESPACE_DIR}\\`)) {
+    return [
+      trimmed,
+      trimmed
+        .replace(LEGACY_PLUGIN_STATE_DIRNAME, NEXT_PLUGIN_STATE_DIRNAME)
+        .replace(`/${LEGACY_PLUGIN_NAMESPACE_DIR}/`, `/${NEXT_PLUGIN_NAMESPACE_DIR}/`)
+        .replace(`\\${LEGACY_PLUGIN_NAMESPACE_DIR}\\`, `\\${NEXT_PLUGIN_NAMESPACE_DIR}\\`),
+    ];
+  }
+  if (trimmed.includes(`/${NEXT_PLUGIN_NAMESPACE_DIR}/`) || trimmed.includes(`\\${NEXT_PLUGIN_NAMESPACE_DIR}\\`)) {
+    return [
+      trimmed
+        .replace(NEXT_PLUGIN_STATE_DIRNAME, LEGACY_PLUGIN_STATE_DIRNAME)
+        .replace(`/${NEXT_PLUGIN_NAMESPACE_DIR}/`, `/${LEGACY_PLUGIN_NAMESPACE_DIR}/`)
+        .replace(`\\${NEXT_PLUGIN_NAMESPACE_DIR}\\`, `\\${LEGACY_PLUGIN_NAMESPACE_DIR}\\`),
+      trimmed,
+    ];
+  }
+  return [trimmed];
+}
+
 export function defaultArchiveDir(sessionId: string, workspaceDir?: string): string {
   if (workspaceDir) {
     return workspaceArchiveDir(workspaceDir);

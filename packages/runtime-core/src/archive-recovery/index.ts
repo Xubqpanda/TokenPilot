@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
+  archiveDirWriteTargets,
   defaultArchiveDir,
   defaultArchiveLookupDirs,
   defaultPluginStateDir,
@@ -60,9 +61,6 @@ export async function archiveContent(params: ArchiveContentParams): Promise<{
   archivePath: string;
   archiveDir: string;
 }> {
-  const { archiveDir, archivePath } = buildArchiveLocation(params);
-
-  await mkdir(dirname(archivePath), { recursive: true });
   const entry: GenericArchiveEntry = {
     schemaVersion: 1,
     kind: `${params.sourcePass}_archive`,
@@ -76,10 +74,19 @@ export async function archiveContent(params: ArchiveContentParams): Promise<{
     archivedAt: new Date().toISOString(),
     metadata: params.metadata,
   };
-  await writeFile(archivePath, `${JSON.stringify(entry, null, 2)}\n`, "utf8");
-  await updateArchiveLookup(params.dataKey, archivePath, archiveDir);
+  const primary = buildArchiveLocation(params);
+  const writeDirs = archiveDirWriteTargets(primary.archiveDir);
+  const fileName = primary.archivePath.slice(primary.archiveDir.length + 1);
+  const payload = `${JSON.stringify(entry, null, 2)}\n`;
 
-  return { archivePath, archiveDir };
+  for (const archiveDir of writeDirs) {
+    const archivePath = join(archiveDir, fileName);
+    await mkdir(dirname(archivePath), { recursive: true });
+    await writeFile(archivePath, payload, "utf8");
+    await updateArchiveLookup(params.dataKey, archivePath, archiveDir);
+  }
+
+  return primary;
 }
 
 export function buildArchiveLocation(params: ArchiveLocationParams): {

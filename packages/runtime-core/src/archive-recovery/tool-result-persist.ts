@@ -5,7 +5,7 @@ import {
   buildArchiveLocation,
   buildRecoveryHint,
 } from "./index.js";
-import { hashText, pluginStateSubdir } from "./archive-paths.js";
+import { archiveDirWriteTargets, hashText, pluginStateSubdir } from "./archive-paths.js";
 
 export function buildToolResultPreview(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
@@ -53,8 +53,6 @@ function archiveContentSync(params: {
   archiveDir: string;
   metadata?: Record<string, unknown>;
 }): { archivePath: string; archiveDir: string } {
-  const { archiveDir, archivePath } = buildArchiveLocation(params);
-  mkdirSync(dirname(archivePath), { recursive: true });
   const entry = {
     schemaVersion: 1,
     kind: `${params.sourcePass}_archive`,
@@ -68,9 +66,17 @@ function archiveContentSync(params: {
     archivedAt: new Date().toISOString(),
     metadata: params.metadata,
   };
-  writeFileSync(archivePath, `${JSON.stringify(entry, null, 2)}\n`, "utf8");
-  updateArchiveLookupSync(params.dataKey, archivePath, archiveDir);
-  return { archivePath, archiveDir };
+  const primary = buildArchiveLocation(params);
+  const writeDirs = archiveDirWriteTargets(primary.archiveDir);
+  const fileName = primary.archivePath.slice(primary.archiveDir.length + 1);
+  const payload = `${JSON.stringify(entry, null, 2)}\n`;
+  for (const archiveDir of writeDirs) {
+    const archivePath = join(archiveDir, fileName);
+    mkdirSync(dirname(archivePath), { recursive: true });
+    writeFileSync(archivePath, payload, "utf8");
+    updateArchiveLookupSync(params.dataKey, archivePath, archiveDir);
+  }
+  return primary;
 }
 
 export function resolveToolNameFromPersistEvent(event: any): string {
