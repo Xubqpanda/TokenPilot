@@ -214,7 +214,7 @@
 - `register(api)` runtime orchestration now lives in `packages/openclaw-plugin/src/context-stack/integration/runtime-register.ts`.
 - `index.ts` now mainly owns final plugin export glue and composition over the landed context-stack modules.
 - plugin-side legacy `compaction` runtime/config compatibility has been removed.
-- summary controls now live under `plugins.entries.ecoclaw.config.summary.*`.
-- legacy `/ecoclaw` command wiring has been removed from the live runtime.
+- summary controls now live under the active plugin entry config surface.
+- legacy command wiring has been removed from the live runtime.
 - `session/topology.ts` now only keeps runtime upstream-session bindings.
 - legacy plugin-local acceptance scripts have been removed; only release helpers remain under `packages/openclaw-plugin/scripts/`.

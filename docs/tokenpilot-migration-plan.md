@@ -86,13 +86,13 @@ Scope:
 Rules:
 
 - add new `tokenpilot-*` names first
-- keep old `ecoclaw-*` aliases during the transition
+- keep old legacy aliases during the transition
 - do not remove old scripts until the new names have been validated in real runs
 
 Example:
 
 - add `run_tokenpilot_*.sh`
-- keep `run_ecoclaw_*.sh` working
+- keep old runtime wrapper aliases working until the new entrypoints are validated
 
 ### Phase 3: Runtime/Internal Rename
 

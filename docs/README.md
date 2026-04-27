@@ -14,12 +14,12 @@ directory in this repo.
 - [Plugin Semantic Grouping](architecture/plugin-semantic-grouping.md) - Current semantic buckets for plugin modules
 - [Plugin Semantic Regroup Plan](architecture/plugin-semantic-regroup-plan.md) - Future semantic facades and regroup strategy
 - [Plugin Script Inventory](architecture/plugin-script-inventory.md) - Status of plugin-side helper scripts
-- [Runtime ID Inventory](architecture/ecoclaw-runtime-id-inventory.md) - Current `ecoclaw` naming surface and migration risk classes
+- [Runtime ID Inventory](architecture/ecoclaw-runtime-id-inventory.md) - Current legacy runtime naming surface and migration risk classes
 - [Experiments Consolidation Plan](architecture/experiments-consolidation-plan.md) - How benchmark assets should merge into `experiments/`
 - [Runtime-Neutral Contracts Plan](architecture/runtime-neutral-contracts-plan.md) - Contract split between `kernel`, `layers`, `runtime-core`, and host adapters
 - [TokenPilot OpenClaw Adapter Extraction Inventory](architecture/openclaw-plugin-extraction-inventory.md) - Current boundary between adapter-only code, extracted shared logic, and mixed request-preprocessing surfaces
 - [Runtime Rename Migration Plan](architecture/runtime-rename-migration-plan.md) - Staged compatibility plan for renaming plugin ids, provider prefixes, env vars, package names, and persisted markers
-- [Workspace Package Rename Plan](architecture/workspace-package-rename-plan.md) - Staged build migration for moving shared packages from `@ecoclaw/*` to neutral workspace names
+- [Workspace Package Rename Plan](architecture/workspace-package-rename-plan.md) - Completed build migration from legacy workspace package names to `@tokenpilot/*`
 - [PinchBench Experiments README](../experiments/pinchbench/README.md) - Narrowed first-pass experiments merge target
 
 ## Plans

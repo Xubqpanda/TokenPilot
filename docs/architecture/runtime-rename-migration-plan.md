@@ -2,7 +2,7 @@
 
 ## Goal
 
-Define how to migrate the remaining legacy `ecoclaw` runtime identifiers without
+Define how to migrate the remaining legacy runtime identifiers without
 breaking:
 
 - installed OpenClaw plugin runtimes
