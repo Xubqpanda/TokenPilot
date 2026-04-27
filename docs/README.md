@@ -17,6 +17,7 @@ directory in this repo.
 - [Runtime ID Inventory](architecture/ecoclaw-runtime-id-inventory.md) - Current `ecoclaw` naming surface and migration risk classes
 - [Experiments Consolidation Plan](architecture/experiments-consolidation-plan.md) - How benchmark assets should merge into `experiments/`
 - [Runtime-Neutral Contracts Plan](architecture/runtime-neutral-contracts-plan.md) - Contract split between `kernel`, `layers`, `runtime-core`, and host adapters
+- [OpenClaw Plugin Extraction Inventory](architecture/openclaw-plugin-extraction-inventory.md) - Current boundary between adapter-only code, extracted shared logic, and mixed request-preprocessing surfaces
 - [PinchBench Experiments README](../experiments/pinchbench/README.md) - Narrowed first-pass experiments merge target
 
 ## Plans
@@ -55,6 +56,3 @@ Old documentation from `EcoClaw_read_before_exe/`:
 - `PICHAY.txt` - old design reference, removed from the active docs index
 - `notice_background.txt` - archived (background context, not current design)
 
-- [multi-runtime-adapter-plan.md](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/docs/architecture/multi-runtime-adapter-plan.md): boundary plan for keeping host-specific adapters separate from runtime-agnostic method layers.
-- [module-extraction-target-map.md](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/docs/architecture/module-extraction-target-map.md): file-level map for what should stay in the OpenClaw adapter versus move into shared layers or runtime-core.
-- [kernel-and-dead-framework-audit.md](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/docs/architecture/kernel-and-dead-framework-audit.md): audit of active kernel contracts versus removable dead provider/storage framework packages.
