@@ -1,6 +1,6 @@
 import { dirname } from "node:path";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { pluginStateSubdir, pluginStateSubdirCandidates } from "@tokenpilot/runtime-core";
+import { pluginStateSubdir, pluginStateSubdirCandidates, pluginStateSubdirWriteTargets } from "@tokenpilot/runtime-core";
 
 export type RecentTurnBinding = {
   userMessage: string;
@@ -49,8 +49,11 @@ export function loadRecentTurnBindingsFromState(
 
 export function persistRecentTurnBindingsToState(stateDir: string, bindings: RecentTurnBinding[]): void {
   try {
-    mkdirSync(dirname(recentTurnBindingsPath(stateDir)), { recursive: true });
-    writeFileSync(recentTurnBindingsPath(stateDir), JSON.stringify(bindings.slice(-128), null, 2), "utf8");
+    const payload = JSON.stringify(bindings.slice(-128), null, 2);
+    for (const path of pluginStateSubdirWriteTargets(stateDir, "controls", "recent-turn-bindings.json")) {
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, payload, "utf8");
+    }
   } catch {
     // Best-effort only: provider-side lookup can still rely on in-memory bindings if persistence fails.
   }

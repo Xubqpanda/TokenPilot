@@ -70,7 +70,8 @@ mkdir -p "${OUTPUT_DIR}" "${LOG_DIR}" "${REPORT_DIR}"
 export PINCHBENCH_EVAL_LOG_FILE="${EVAL_LOG_FILE}"
 export PINCHBENCH_EVAL_JSONL_FILE="${EVAL_JSONL_FILE}"
 
-PLUGIN_TRACE_FILE="${HOME}/.openclaw/ecoclaw-plugin-state/task-state/trace.jsonl"
+PLUGIN_STATE_DIR="$(resolve_plugin_state_dir)"
+PLUGIN_TRACE_FILE="${PLUGIN_STATE_DIR}/task-state/trace.jsonl"
 GATEWAY_LOG_FILE="/tmp/openclaw_gateway.log"
 TRACE_TAIL_PID=""
 GATEWAY_TAIL_PID=""
@@ -166,7 +167,7 @@ fi
 RESULT_JSON="$(latest_json_in_dir "${OUTPUT_DIR}" || true)"
 if [[ -n "${RESULT_JSON}" ]]; then
   COST_REPORT_FILE="${REPORT_DIR}/method_${RUN_TAG}_cost.json"
-  REDUCTION_TRACE_FILE="${HOME}/.openclaw/ecoclaw-plugin-state/ecoclaw/reduction-pass-trace.jsonl"
+  REDUCTION_TRACE_FILE="${PLUGIN_STATE_DIR}/ecoclaw/reduction-pass-trace.jsonl"
   REDUCTION_REPORT_FILE="${REPORT_DIR}/method_${RUN_TAG}_reduction_passes.json"
   generate_cost_report_and_print_summary "${RESULT_JSON}" "${COST_REPORT_FILE}"
   generate_reduction_pass_report_and_print_summary "${REDUCTION_TRACE_FILE}" "${REDUCTION_REPORT_FILE}" "${RUN_START_ISO}"

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 export const LEGACY_PLUGIN_STATE_DIRNAME = "ecoclaw-plugin-state";
@@ -18,7 +19,43 @@ export function defaultPluginStateDir(): string {
     return envStateDir.trim();
   }
   const homeDir = process.env.HOME || process.env.USERPROFILE || ".";
+  const candidates = [
+    join(homeDir, ".openclaw", NEXT_PLUGIN_STATE_DIRNAME),
+    join(homeDir, ".openclaw", LEGACY_PLUGIN_STATE_DIRNAME),
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
   return join(homeDir, ".openclaw", LEGACY_PLUGIN_STATE_DIRNAME);
+}
+
+export function pluginStateDirCandidates(explicitStateDir?: string): string[] {
+  if (explicitStateDir && explicitStateDir.trim().length > 0) {
+    return [explicitStateDir.trim()];
+  }
+  const homeDir = process.env.HOME || process.env.USERPROFILE || ".";
+  return [
+    join(homeDir, ".openclaw", NEXT_PLUGIN_STATE_DIRNAME),
+    join(homeDir, ".openclaw", LEGACY_PLUGIN_STATE_DIRNAME),
+  ];
+}
+
+export function pluginStateDirWriteTargets(stateDir: string): string[] {
+  const trimmed = stateDir.trim();
+  const parent = join(trimmed, "..");
+  if (trimmed.endsWith(`/${LEGACY_PLUGIN_STATE_DIRNAME}`) || trimmed.endsWith(`\\${LEGACY_PLUGIN_STATE_DIRNAME}`)) {
+    return [
+      join(parent, LEGACY_PLUGIN_STATE_DIRNAME),
+      join(parent, NEXT_PLUGIN_STATE_DIRNAME),
+    ];
+  }
+  if (trimmed.endsWith(`/${NEXT_PLUGIN_STATE_DIRNAME}`) || trimmed.endsWith(`\\${NEXT_PLUGIN_STATE_DIRNAME}`)) {
+    return [
+      join(parent, NEXT_PLUGIN_STATE_DIRNAME),
+      join(parent, LEGACY_PLUGIN_STATE_DIRNAME),
+    ];
+  }
+  return [trimmed];
 }
 
 export function pluginStateSubdir(stateDir: string, ...parts: string[]): string {
@@ -26,10 +63,24 @@ export function pluginStateSubdir(stateDir: string, ...parts: string[]): string 
 }
 
 export function pluginStateSubdirCandidates(stateDir: string, ...parts: string[]): string[] {
-  return [
-    join(stateDir, NEXT_PLUGIN_NAMESPACE_DIR, ...parts),
-    join(stateDir, LEGACY_PLUGIN_NAMESPACE_DIR, ...parts),
-  ];
+  const out: string[] = [];
+  for (const root of pluginStateDirCandidates(stateDir)) {
+    out.push(join(root, NEXT_PLUGIN_NAMESPACE_DIR, ...parts));
+    out.push(join(root, LEGACY_PLUGIN_NAMESPACE_DIR, ...parts));
+  }
+  return Array.from(new Set(out));
+}
+
+export function pluginStateSubdirWriteTargets(stateDir: string, ...parts: string[]): string[] {
+  const out: string[] = [];
+  for (const root of pluginStateDirWriteTargets(stateDir)) {
+    if (root.endsWith(`/${NEXT_PLUGIN_STATE_DIRNAME}`) || root.endsWith(`\\${NEXT_PLUGIN_STATE_DIRNAME}`)) {
+      out.push(join(root, NEXT_PLUGIN_NAMESPACE_DIR, ...parts));
+    } else {
+      out.push(join(root, LEGACY_PLUGIN_NAMESPACE_DIR, ...parts));
+    }
+  }
+  return Array.from(new Set(out));
 }
 
 export function workspaceArchiveDir(workspaceDir: string): string {

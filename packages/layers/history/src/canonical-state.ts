@@ -16,10 +16,13 @@ export function canonicalStateDir(stateDir: string): string {
 
 export function canonicalStatePathCandidates(stateDir: string, sessionId: string): string[] {
   const safeSessionId = String(sessionId || "session").replace(/[^a-zA-Z0-9._-]+/g, "_");
-  return [
+  const candidates = [
+    join(stateDir.replace(/ecoclaw-plugin-state$/, "tokenpilot-plugin-state"), "tokenpilot", "canonical-state", `${safeSessionId}.json`),
+    join(stateDir.replace(/tokenpilot-plugin-state$/, "ecoclaw-plugin-state"), "ecoclaw", "canonical-state", `${safeSessionId}.json`),
     join(stateDir, "tokenpilot", "canonical-state", `${safeSessionId}.json`),
     join(stateDir, "ecoclaw", "canonical-state", `${safeSessionId}.json`),
   ];
+  return Array.from(new Set(candidates));
 }
 
 export function canonicalStatePath(stateDir: string, sessionId: string): string {
@@ -54,9 +57,13 @@ export async function loadCanonicalState(stateDir: string, sessionId: string): P
 }
 
 export async function saveCanonicalState(stateDir: string, state: EcoCanonicalState): Promise<void> {
-  const path = canonicalStatePath(stateDir, state.sessionId);
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify(state, null, 2), "utf8");
+  const payload = JSON.stringify(state, null, 2);
+  const legacyPath = canonicalStatePath(stateDir, state.sessionId);
+  const nextPath = canonicalStatePathCandidates(stateDir, state.sessionId)[0];
+  for (const path of Array.from(new Set([legacyPath, nextPath]))) {
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, payload, "utf8");
+  }
 }
 
 export function estimateMessagesChars(messages: any[], contentToText: (value: unknown) => string): number {

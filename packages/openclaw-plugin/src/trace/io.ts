@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { join, dirname } from "node:path";
 import { mkdir, appendFile } from "node:fs/promises";
-import { pluginStateSubdir } from "@tokenpilot/runtime-core";
+import { pluginStateDirWriteTargets, pluginStateSubdirWriteTargets } from "@tokenpilot/runtime-core";
 
 function toJsonSafe(value: unknown, seen = new WeakSet<object>()): unknown {
   if (value == null) return value;
@@ -30,10 +30,13 @@ export async function appendJsonl(path: string, payload: unknown): Promise<void>
 }
 
 export async function appendTaskStateTrace(stateDir: string, payload: Record<string, unknown>): Promise<void> {
-  await appendJsonl(join(stateDir, "task-state", "trace.jsonl"), {
+  const record = {
     at: new Date().toISOString(),
     ...payload,
-  });
+  };
+  for (const root of pluginStateDirWriteTargets(stateDir)) {
+    await appendJsonl(join(root, "task-state", "trace.jsonl"), record);
+  }
 }
 
 export async function appendForwardedInputDump(
@@ -42,7 +45,9 @@ export async function appendForwardedInputDump(
   payload: Record<string, unknown>,
 ): Promise<void> {
   const safeSessionId = String(sessionId || "session").replace(/[^a-zA-Z0-9._-]+/g, "_");
-  await appendJsonl(pluginStateSubdir(stateDir, "forwarded-inputs", `${safeSessionId}.jsonl`), payload);
+  for (const path of pluginStateSubdirWriteTargets(stateDir, "forwarded-inputs", `${safeSessionId}.jsonl`)) {
+    await appendJsonl(path, payload);
+  }
 }
 
 export async function appendReductionPassTrace(
@@ -69,11 +74,11 @@ export async function appendReductionPassTrace(
   },
 ): Promise<void> {
   if (!Array.isArray(payload.report) || payload.report.length === 0) return;
-  const tracePath = pluginStateSubdir(stateDir, "reduction-pass-trace.jsonl");
+  const tracePaths = pluginStateSubdirWriteTargets(stateDir, "reduction-pass-trace.jsonl");
   for (const entry of payload.report) {
     const beforeChars = Number(entry.beforeChars ?? 0);
     const afterChars = Number(entry.afterChars ?? beforeChars);
-    await appendJsonl(tracePath, {
+    const record = {
       at: payload.at,
       stage: payload.stage,
       requestId: payload.requestId,
@@ -91,6 +96,9 @@ export async function appendReductionPassTrace(
       savedChars: Math.max(0, beforeChars - afterChars),
       touchedSegmentIds: Array.isArray(entry.touchedSegmentIds) ? entry.touchedSegmentIds : [],
       extra: payload.extra ?? {},
-    });
+    };
+    for (const tracePath of tracePaths) {
+      await appendJsonl(tracePath, record);
+    }
   }
 }

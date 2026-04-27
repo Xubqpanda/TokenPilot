@@ -505,6 +505,24 @@ resolve_skill_dir() {
   resolve_dataset_dir
 }
 
+resolve_plugin_state_dir() {
+  if [[ -n "${TOKENPILOT_STATE_DIR:-}" && -d "${TOKENPILOT_STATE_DIR}" ]]; then
+    printf '%s\n' "${TOKENPILOT_STATE_DIR}"
+    return 0
+  fi
+  if [[ -n "${ECOCLAW_STATE_DIR:-}" && -d "${ECOCLAW_STATE_DIR}" ]]; then
+    printf '%s\n' "${ECOCLAW_STATE_DIR}"
+    return 0
+  fi
+  local tokenpilot_state_dir="${HOME}/.openclaw/tokenpilot-plugin-state"
+  local legacy_state_dir="${HOME}/.openclaw/ecoclaw-plugin-state"
+  if [[ -d "${tokenpilot_state_dir}" ]]; then
+    printf '%s\n' "${tokenpilot_state_dir}"
+    return 0
+  fi
+  printf '%s\n' "${legacy_state_dir}"
+}
+
 latest_json_in_dir() {
   local dir_path="${1:?directory path is required}"
   if [[ ! -d "${dir_path}" ]]; then
