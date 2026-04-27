@@ -114,16 +114,19 @@ persisted state.
 
 ### Workspace package names
 
-- [packages/kernel/package.json](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/kernel/package.json)
-  - `@ecoclaw/kernel`
-- [packages/layers/history/package.json](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/layers/history/package.json)
-  - `@ecoclaw/layer-history`
-- [packages/layers/decision/package.json](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/layers/decision/package.json)
-  - `@ecoclaw/layer-decision`
-- [packages/runtime-core/package.json](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/runtime-core/package.json)
-  - `@ecoclaw/runtime-core`
+This migration has already landed. The active package namespace is now:
 
-These are now cross-package import contracts, not just branding.
+- [packages/kernel/package.json](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/kernel/package.json)
+  - `@tokenpilot/kernel`
+- [packages/layers/history/package.json](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/layers/history/package.json)
+  - `@tokenpilot/history`
+- [packages/layers/decision/package.json](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/layers/decision/package.json)
+  - `@tokenpilot/decision`
+- [packages/runtime-core/package.json](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/runtime-core/package.json)
+  - `@tokenpilot/runtime-core`
+
+So workspace package names are no longer part of the live `ecoclaw` runtime
+surface.
 
 ## Class B: Internal Low-Risk Names
 
@@ -196,7 +199,6 @@ Only the first two belong in the next pass.
 ### Phase 2
 
 - define alias and fallback strategy for runtime ids
-- decide how to handle `@ecoclaw/*` workspace package names
 - decide how to migrate persisted paths and markers
 
 ### Phase 3

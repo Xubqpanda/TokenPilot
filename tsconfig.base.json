@@ -12,26 +12,14 @@
         "esModuleInterop": true,
         "baseUrl": ".",
         "paths": {
-            "@ecoclaw/kernel": [
-                "packages/kernel/src/index.ts"
-            ],
             "@tokenpilot/kernel": [
                 "packages/kernel/src/index.ts"
-            ],
-            "@ecoclaw/layer-decision": [
-                "packages/layers/decision/src/index.ts"
             ],
             "@tokenpilot/decision": [
                 "packages/layers/decision/src/index.ts"
             ],
-            "@ecoclaw/layer-history": [
-                "packages/layers/history/src/index.ts"
-            ],
             "@tokenpilot/history": [
                 "packages/layers/history/src/index.ts"
-            ],
-            "@ecoclaw/runtime-core": [
-                "packages/runtime-core/src/index.ts"
             ],
             "@tokenpilot/runtime-core": [
                 "packages/runtime-core/src/index.ts"

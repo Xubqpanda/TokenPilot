@@ -1,5 +1,5 @@
 {
-  "name": "@ecoclaw/layer-decision",
+  "name": "@tokenpilot/decision",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
     "test": "tsx --test tests/**/*.test.ts"
   },
   "dependencies": {
-    "@ecoclaw/layer-history": "workspace:*",
-    "@ecoclaw/kernel": "workspace:*"
+    "@tokenpilot/history": "workspace:*",
+    "@tokenpilot/kernel": "workspace:*"
   }
 }

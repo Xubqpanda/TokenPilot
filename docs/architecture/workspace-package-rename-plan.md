@@ -13,12 +13,12 @@ This is a repository/build migration, not a host-runtime migration.
 
 ## Current Workspace Package Surface
 
-The active package namespace is:
+The active package namespace is now:
 
-- `@ecoclaw/kernel`
-- `@ecoclaw/layer-history`
-- `@ecoclaw/layer-decision`
-- `@ecoclaw/runtime-core`
+- `@tokenpilot/kernel`
+- `@tokenpilot/history`
+- `@tokenpilot/decision`
+- `@tokenpilot/runtime-core`
 
 These names currently appear in three places:
 
@@ -59,42 +59,36 @@ Rationale:
 
 ### Phase 1: Dual Path Alias Support
 
-Update `tsconfig.base.json` so both old and new import names resolve:
+Completed.
+
+`tsconfig.base.json` temporarily resolved both:
 
 - old: `@ecoclaw/*`
 - new: `@tokenpilot/*`
 
-Do not change package manifest names yet.
-
-Goal:
-
-- allow source migration incrementally
-- keep old imports working during the transition
-
 ### Phase 2: Source Import Migration
 
-Migrate source imports package by package:
+Completed.
+
+Source imports were migrated package by package:
 
 1. `packages/layers/history`
 2. `packages/layers/decision`
 3. `packages/runtime-core`
 4. `packages/openclaw-plugin`
 
-This should be done in small batches with typecheck/build after each slice.
-
 ### Phase 3: Manifest Rename
 
-After source imports no longer use `@ecoclaw/*`:
+Completed.
 
-1. rename package manifest `name` fields
-2. update workspace dependency declarations
-3. re-run all package builds and plugin release packaging
+Package manifest `name` fields and workspace dependency declarations now use
+the `@tokenpilot/*` namespace.
 
 ### Phase 4: Remove Legacy Path Aliases
 
-Only after the codebase is fully migrated:
+Completed.
 
-- remove `@ecoclaw/*` from `tsconfig.base.json`
+Legacy `@ecoclaw/*` path aliases have been removed from `tsconfig.base.json`.
 
 ## Validation Matrix
 
@@ -125,13 +119,10 @@ After each phase, run:
 
 ## Current Recommendation
 
-Do not rename workspace package manifests first.
+The workspace package rename is now landed at the source/build level.
 
-Start with:
+Remaining rename work is no longer about workspace imports. It has moved to:
 
-1. dual path aliases in `tsconfig.base.json`
-2. import migration
-3. manifest rename only after imports are clean
-
-This keeps the migration reversible and avoids breaking release packaging too
-early.
+1. plugin/runtime ids
+2. persisted markers and state paths
+3. final documentation cleanup

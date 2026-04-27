@@ -40,10 +40,12 @@ It does not cover README or documentation-only wording.
 
 ### Workspace package imports
 
-- `@ecoclaw/kernel`
-- `@ecoclaw/layer-history`
-- `@ecoclaw/layer-decision`
-- `@ecoclaw/runtime-core`
+This migration has already landed:
+
+- `@tokenpilot/kernel`
+- `@tokenpilot/history`
+- `@tokenpilot/decision`
+- `@tokenpilot/runtime-core`
 
 ### Persisted paths and markers
 
@@ -101,16 +103,15 @@ ids and only dual-read config/env values first.
 
 ### Phase 3: Workspace Package Transition
 
-Migrate package names separately from runtime ids.
+Completed.
 
-Recommended strategy:
+Workspace package names were migrated separately from runtime ids, using:
 
-1. add temporary bridge packages or tsconfig path aliases
-2. switch internal imports gradually
-3. only then rename package manifests
+1. temporary dual path aliases
+2. incremental import migration
+3. manifest rename after imports were clean
 
-This should be treated as a repository build migration, not a plugin-runtime
-migration.
+This migration should stay decoupled from plugin/runtime-id migration.
 
 ### Phase 4: Persisted State Strategy
 
@@ -169,14 +170,8 @@ This is the safest runtime rename step and should happen early.
 
 ### Package names
 
-Do not rename all `@ecoclaw/*` packages in one batch.
-
-Preferred order:
-
-1. add bridge alias support in local paths/build config
-2. migrate imports
-3. rename package manifests
-4. validate workspace install/build everywhere
+Package names are no longer blocked. The active workspace namespace is already
+`@tokenpilot/*`.
 
 ## Validation Matrix
 
