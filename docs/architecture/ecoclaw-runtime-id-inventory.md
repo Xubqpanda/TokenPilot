@@ -24,26 +24,26 @@ require config migration, compatibility fallback, and smoke validation.
 
 #### Context engine identity
 
-- [context-engine.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-engine.ts)
+- [context-engine.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/context-engine.ts)
   - `id: "ecoclaw-context"`
 - [index.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/index.ts)
   - `api.registerContextEngine("ecoclaw-context", ...)`
 
 #### Provider namespace
 
-- [proxy/provider.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/proxy/provider.ts)
+- [proxy/provider.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/proxy-provider.ts)
   - provider `id: "ecoclaw"`
   - registration of `ecoclaw/*`
-- [proxy/upstream.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/proxy/upstream.ts)
+- [proxy/upstream.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/upstream.ts)
   - mirrored model keys under `ecoclaw/<model>`
 - [README.md](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/README.md)
   - documented runtime model prefix `ecoclaw/<model>`
 
 #### Environment variable prefix
 
-- [config.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/config.ts)
+- [config.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/config.ts)
   - `ECOCLAW_TASK_STATE_ESTIMATOR_*`
-- [proxy/upstream.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/proxy/upstream.ts)
+- [proxy/upstream.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/upstream.ts)
   - `ECOCLAW_UPSTREAM_*`
 - [execution/archive-recovery/archive-paths.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/execution/archive-recovery/archive-paths.ts)
   - `ECOCLAW_STATE_DIR`
@@ -52,16 +52,16 @@ require config migration, compatibility fallback, and smoke validation.
 
 #### State directory and artifact layout
 
-- [config.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/config.ts)
+- [config.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/config.ts)
   - default state dir `~/.openclaw/ecoclaw-plugin-state`
-- [canonical/state.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/canonical/state.ts)
+- [canonical/state.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/page-out/canonical-state.ts)
   - `stateDir/ecoclaw/canonical-state/...`
-- [tool-results/persist.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/tool-results/persist.ts)
+- [tool-results/persist.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/request-preprocessing/tool-results-persist.ts)
   - `stateDir/ecoclaw/artifacts/...`
 - [trace/io.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/trace/io.ts)
   - `stateDir/ecoclaw/forwarded-inputs/...`
   - `stateDir/ecoclaw/reduction-pass-trace.jsonl`
-- [proxy/runtime.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/proxy/runtime.ts)
+- [proxy/runtime.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/proxy-runtime.ts)
   - `stateDir/ecoclaw/proxy-requests.jsonl`
   - `stateDir/ecoclaw/proxy-responses.jsonl`
 - [session/turn-bindings.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/session/turn-bindings.ts)
@@ -72,13 +72,13 @@ require config migration, compatibility fallback, and smoke validation.
 These are not just names. They are protocol markers in payloads and recovery
 paths, so changing them carelessly would break compatibility.
 
-- [recovery/protocol.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/recovery/protocol.ts)
+- [recovery/protocol.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/page-in/recovery-protocol.ts)
   - `[EcoClaw Recovery Protocol]`
   - `__ecoclaw_reduction_applied`
   - `__ecoclaw_replay_raw`
-- [proxy/reduction-context.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/proxy/reduction-context.ts)
+- [proxy/reduction-context.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/request-preprocessing/reduction-context.ts)
   - `[ecoclaw persisted tool_result]`
-- [tool-results/persist.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/tool-results/persist.ts)
+- [tool-results/persist.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/request-preprocessing/tool-results-persist.ts)
   - preview/persist markers containing `ecoclaw`
 
 #### Package/workspace names
@@ -100,9 +100,9 @@ refactor after the runtime ID layer has a compatibility plan.
 
 #### Types and factories
 
-- [config.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/config.ts)
+- [config.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/config.ts)
   - `PluginRuntimeConfig`
-- [context-engine.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-engine.ts)
+- [context-engine.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/context-engine.ts)
   - `createPluginContextEngine`
 
 #### Event names and metadata keys
@@ -122,7 +122,7 @@ so it is not a pure test-only name.
 
 #### Internal singleton keys
 
-- [runtime/register.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/runtime/register.ts)
+- [runtime/register.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/runtime-register.ts)
   - internal embedded-proxy singleton key already moved to the neutral
     `__runtime_optimizer_embedded_proxy_runtime__`
 
@@ -134,13 +134,13 @@ remains unchanged.
 
 #### Logger prefixes
 
-- [runtime/register.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/runtime/register.ts)
+- [runtime/register.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/runtime-register.ts)
   - `[plugin-runtime] ...`
-- [proxy/runtime.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/proxy/runtime.ts)
+- [proxy/runtime.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/proxy-runtime.ts)
   - `[plugin-runtime] ...`
-- [proxy/upstream.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/proxy/upstream.ts)
+- [proxy/upstream.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/upstream.ts)
   - `[plugin-runtime] ...`
-- [recovery/tool.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/recovery/tool.ts)
+- [recovery/tool.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/page-in/recovery-tool.ts)
   - `[plugin-runtime] ...`
 
 These have already been moved off the brand-specific `[ecoclaw]` prefix without

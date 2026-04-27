@@ -40,28 +40,28 @@
 - 在 decoupled 模式下，FIFO promotion 负责产出 `evictableTaskIds`
 
 2. Canonical execution side
-- `packages/openclaw-plugin/src/canonical/eviction.ts`
+- `packages/openclaw-plugin/src/context-stack/page-out/canonical-eviction.ts`
 - 负责对 durable canonical history 做 task-level canonical eviction
 
 ## Canonical split already completed
 
 目前已经从 `index.ts` 抽出去的 canonical 逻辑有：
 
-### `canonical/state.ts`
+### `context-stack/page-out/canonical-state.ts`
 - canonical state load/save
 - transcript append
 - message-char estimation
 
-### `canonical/anchors.ts`
+### `context-stack/page-out/canonical-anchors.ts`
 - task anchor sorting
 - canonical message task-anchor annotation
 
-### `canonical/eviction.ts`
+### `context-stack/page-out/canonical-eviction.ts`
 - closure deferral check
 - canonical task archive lookup
 - task-level canonical eviction apply
 
-### `canonical/rewrite.ts`
+### `context-stack/page-out/canonical-rewrite.ts`
 - transcript sync into canonical state
 - canonical annotation + eviction rewrite orchestration
 - canonical rewrite trace emission
@@ -72,49 +72,49 @@
 - reduction pass trace append
 - shared JSONL append helper
 
-### `trace/hooks.ts`
+### `context-stack/integration/trace-hooks.ts`
 - llm hook tap path resolution
 - llm hook monitoring/tap registration
 - hook event trace shaping
 
-### `proxy/stable-prefix.ts`
+### `context-stack/request-preprocessing/stable-prefix.ts`
 - stable prefix normalization
 - payload-level cache-key rewrite
 - sender metadata stripping
 - request input char estimation
 - turn-binding normalization helpers
 
-### `proxy/after-call-reduction.ts`
+### `context-stack/request-preprocessing/after-call-reduction.ts`
 - JSON response text extraction/patching
 - SSE response text extraction/patching
 - after-call layered reduction execution
 - after-call reduction result shaping
 
-### `proxy/before-call-reduction.ts`
+### `context-stack/request-preprocessing/before-call-reduction.ts`
 - before-call reduction entrypoint
 - before-call reduction result shaping
 - reduction pipeline application
 - pre-reduction policy hook integration
 
-### `proxy/reduction-context.ts`
+### `context-stack/request-preprocessing/reduction-context.ts`
 - before-call reduction context builder
 - proxy input tool-payload segmentation
 - repeated-read dedup instruction shaping
 - exec-output threshold evaluation
 - recovery-aware reduction gating
 
-### `proxy/reduction-helpers.ts`
+### `context-stack/request-preprocessing/reduction-helpers.ts`
 - ordered turn anchor loading
 - tool-call to task-anchor loading
 - reduction pass enable/disable gate
 
-### `tool-results/persist.ts`
+### `context-stack/request-preprocessing/tool-results-persist.ts`
 - tool_result_persist policy execution
 - artifact archival + preview fallback shaping
 - contextSafe metadata update for persisted tool results
 - persistence trace emission
 
-### `transcript/sync.ts`
+### `context-stack/page-out/transcript-sync.ts`
 - transcript row loading and stable-id derivation
 - event.messages -> raw semantic turn extraction
 - transcript -> raw semantic turn sync
@@ -128,7 +128,7 @@
 - recent turn binding state load/save
 - provider-side turn-binding persistence
 
-### `runtime/helpers.ts`
+### `context-stack/integration/runtime-helpers.ts`
 - shared logger/hook helpers
 - session/user-message extraction helpers
 - tool-result/contextSafe helpers
@@ -136,41 +136,41 @@
 - provider-response extraction helpers
 - OpenClaw session-id extraction helpers
 
-### `config.ts`
+### `context-stack/integration/config.ts`
 - plugin config types
 - config normalization
 - shared config helpers (`safeId`, `asRecord`, `extractPathLike`)
 - policy-module config builder
 - before-call policy bridge
 
-### `context-engine.ts`
+### `context-stack/integration/context-engine.ts`
 - context-engine bootstrap
 - canonical context assemble/compact orchestration
 
-### `recovery/common.ts`
+### `context-stack/page-in/recovery-common.ts`
 - recovery marker constants
 - contextSafe recovery metadata lookup
 - recovery contextSafe patch shaping
 
-### `recovery/protocol.ts`
+### `context-stack/page-in/recovery-protocol.ts`
 - memory-fault recovery instruction injection
 - internal payload marker stripping
 
-### `recovery/tool.ts`
+### `context-stack/page-in/recovery-tool.ts`
 - `memory_fault_recover` tool registration
 - archive lookup and recovered payload shaping
 
-### `proxy/upstream.ts`
+### `context-stack/integration/upstream.ts`
 - upstream provider discovery
 - proxy model config sync
 - fetch/curl transport fallback
 - upstream transport trace emission
 
-### `proxy/provider.ts`
+### `context-stack/integration/proxy-provider.ts`
 - provider registration glue for embedded proxy
 - mirrored model definition shaping
 
-### `proxy/runtime.ts`
+### `context-stack/integration/proxy-runtime.ts`
 - embedded local `/v1/responses` runtime
 - request forwarding orchestration
 - proxy-side stable-prefix/reduction/trace glue
@@ -211,8 +211,8 @@
 - integration leftovers 继续污染实验结论
 
 ## Latest status
-- `register(api)` runtime orchestration has been moved to `packages/openclaw-plugin/src/runtime/register.ts`.
-- `index.ts` now mainly owns proxy-runtime helper wiring, test hooks, and final plugin export glue.
+- `register(api)` runtime orchestration now lives in `packages/openclaw-plugin/src/context-stack/integration/runtime-register.ts`.
+- `index.ts` now mainly owns final plugin export glue and composition over the landed context-stack modules.
 - plugin-side legacy `compaction` runtime/config compatibility has been removed.
 - summary controls now live under `plugins.entries.ecoclaw.config.summary.*`.
 - legacy `/ecoclaw` command wiring has been removed from the live runtime.

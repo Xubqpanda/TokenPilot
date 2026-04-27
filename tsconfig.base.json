@@ -15,21 +15,12 @@
             "@ecoclaw/kernel": [
                 "packages/kernel/src/index.ts"
             ],
-            "@ecoclaw/provider-openai": [
-                "packages/providers/openai/src/index.ts"
-            ],
-            "@ecoclaw/provider-anthropic": [
-                "packages/providers/anthropic/src/index.ts"
-            ],
             "@ecoclaw/layer-decision": [
                 "packages/layers/decision/src/index.ts"
             ],
             "@ecoclaw/layer-history": [
                 "packages/layers/history/src/index.ts"
             ],
-            "@ecoclaw/storage-fs": [
-                "packages/storage/fs/src/index.ts"
-            ]
         },
         "types": [
             "node"

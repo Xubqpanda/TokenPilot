@@ -53,3 +53,7 @@ Old documentation from `EcoClaw_read_before_exe/`:
 - `task_plan.txt` - moved to `plans/eviction-plan.md`
 - `PICHAY.txt` - old design reference, removed from the active docs index
 - `notice_background.txt` - archived (background context, not current design)
+
+- [multi-runtime-adapter-plan.md](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/docs/architecture/multi-runtime-adapter-plan.md): boundary plan for keeping host-specific adapters separate from runtime-agnostic method layers.
+- [module-extraction-target-map.md](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/docs/architecture/module-extraction-target-map.md): file-level map for what should stay in the OpenClaw adapter versus move into shared layers or runtime-core.
+- [kernel-and-dead-framework-audit.md](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/docs/architecture/kernel-and-dead-framework-audit.md): audit of active kernel contracts versus removable dead provider/storage framework packages.
