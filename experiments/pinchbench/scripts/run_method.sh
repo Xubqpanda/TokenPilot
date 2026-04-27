@@ -31,6 +31,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 import_runtime_envs
+MODEL_LIKE="${MODEL:-${ECOCLAW_MODEL:-ecoclaw/gpt-5.4-mini}}"
+JUDGE_LIKE="${JUDGE:-${ECOCLAW_JUDGE:-ecoclaw/gpt-5.4-mini}}"
+apply_model_runtime_env "${MODEL_LIKE}"
 require_method_runtime_env
 apply_ecoclaw_env
 export ECOCLAW_FORCE_GATEWAY_RESTART="${ECOCLAW_FORCE_GATEWAY_RESTART:-true}"
@@ -46,8 +49,6 @@ if [[ -z "${PINCHBENCH_DATASET_DIR:-}" && -d "${PINCHBENCH_ROOT}/dataset" ]]; th
   export PINCHBENCH_DATASET_DIR="${PINCHBENCH_ROOT}/dataset"
 fi
 
-MODEL_LIKE="${MODEL:-${ECOCLAW_MODEL:-ecoclaw/gpt-5.4-mini}}"
-JUDGE_LIKE="${JUDGE:-${ECOCLAW_JUDGE:-ecoclaw/gpt-5.4-mini}}"
 RESOLVED_MODEL="$(resolve_model_alias "${MODEL_LIKE}")"
 RESOLVED_JUDGE="$(resolve_model_alias "${JUDGE_LIKE}")"
 RESOLVED_SUITE="${SUITE:-${ECOCLAW_SUITE:-automated-only}}"

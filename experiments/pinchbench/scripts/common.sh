@@ -44,6 +44,44 @@ import_runtime_envs() {
   import_dotenv "${REPO_ROOT}/.env"
 }
 
+normalize_model_name() {
+  local model_like="${1:-}"
+  if [[ "${model_like}" == *"gpt-5-4-mini"* ]]; then
+    model_like="${model_like//gpt-5-4-mini/gpt-5.4-mini}"
+  fi
+  if [[ "${model_like}" == */* ]]; then
+    model_like="${model_like##*/}"
+  fi
+  printf '%s\n' "${model_like}"
+}
+
+model_env_key() {
+  local model_name
+  model_name="$(normalize_model_name "${1:-}")"
+  model_name="$(printf '%s' "${model_name}" | tr '[:lower:]' '[:upper:]' | sed 's/[^A-Z0-9]/_/g')"
+  printf '%s\n' "${model_name}"
+}
+
+apply_model_runtime_env() {
+  local model_like="${1:?model is required}"
+  local model_key
+  model_key="$(model_env_key "${model_like}")"
+
+  local route_base_var="PINCHBENCH_MODEL_${model_key}_BASE_URL"
+  local route_key_var="PINCHBENCH_MODEL_${model_key}_API_KEY"
+  local route_provider_var="PINCHBENCH_MODEL_${model_key}_PROVIDER_PREFIX"
+
+  if [[ -n "${!route_base_var:-}" ]]; then
+    export ECOCLAW_BASE_URL="${!route_base_var}"
+  fi
+  if [[ -n "${!route_key_var:-}" ]]; then
+    export ECOCLAW_API_KEY="${!route_key_var}"
+  fi
+  if [[ -n "${!route_provider_var:-}" ]]; then
+    export PINCHBENCH_MODEL_PROVIDER_PREFIX="${!route_provider_var}"
+  fi
+}
+
 resolve_model_alias() {
   local model_like="${1:?model alias is required}"
   local provider_prefix="${PINCHBENCH_MODEL_PROVIDER_PREFIX:-${ECOCLAW_OPENAI_PROVIDER:-}}"
