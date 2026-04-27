@@ -183,7 +183,7 @@ export async function rewriteCanonicalState(params: RewriteCanonicalStateParams)
       replacementMode,
     });
     params.helpers.logger?.info(
-      `[ecoclaw/eviction-apply] session=${params.sessionId} applied=${evictionApplied.appliedCount} tasks=${evictionApplied.appliedTaskIds.join(", ") || "none"}`,
+      `[runtime/eviction-apply] session=${params.sessionId} applied=${evictionApplied.appliedCount} tasks=${evictionApplied.appliedTaskIds.join(", ") || "none"}`,
     );
   }
   await params.helpers.appendTaskStateTrace(params.stateDir, {

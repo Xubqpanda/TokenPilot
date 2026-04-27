@@ -9,7 +9,7 @@ import { archiveDirWriteTargets, hashText, pluginStateSubdir } from "./archive-p
 
 export function buildToolResultPreview(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
-  return `${text.slice(0, maxChars)}\n\n[ecoclaw preview truncated]`;
+  return `${text.slice(0, maxChars)}\n\n[tool result preview truncated]`;
 }
 
 export function toolInlineLimit(toolName: string): number {
@@ -100,7 +100,7 @@ export type ToolResultPersistOutcome = {
   noticeText?: string;
   recoveryHint?: string;
   sourcePass?: "tool_result_persist";
-  persistedBy?: "ecoclaw.tool_result_persist";
+  persistedBy?: "runtime.tool_result_persist";
 };
 
 export function planToolResultPersistence(params: {
@@ -138,7 +138,7 @@ export function planToolResultPersistence(params: {
       archiveDir: pluginStateSubdir(params.stateDir, "artifacts", toolPart),
       metadata: {
         toolCallId: callId || undefined,
-        persistedBy: "ecoclaw.tool_result_persist",
+        persistedBy: "runtime.tool_result_persist",
       },
     });
     outputFile = archived.archivePath;
@@ -148,8 +148,8 @@ export function planToolResultPersistence(params: {
 
   const previewText = buildToolResultPreview(text, limit);
   const noticeText = outputFile
-    ? `[ecoclaw persisted tool_result] full output moved to: ${outputFile}`
-    : "[ecoclaw persisted tool_result] artifact write failed, using inline preview fallback";
+    ? `[persisted tool result] full output moved to: ${outputFile}`
+    : "[persisted tool result] artifact write failed, using inline preview fallback";
   const recoveryHint = outputFile
     ? buildRecoveryHint({
         dataKey,
@@ -170,6 +170,6 @@ export function planToolResultPersistence(params: {
     noticeText,
     recoveryHint,
     sourcePass: "tool_result_persist",
-    persistedBy: "ecoclaw.tool_result_persist",
+    persistedBy: "runtime.tool_result_persist",
   };
 }

@@ -202,7 +202,7 @@ async function requestUpstreamWithCurl(
           "--output",
           "-",
           "--write-out",
-          "\n__ECOCLAW_CURL_STATUS__:%{http_code}",
+          "\n__UPSTREAM_CURL_STATUS__:%{http_code}",
         ];
         const targetUrl = new URL(`${upstream.baseUrl}/responses`);
         const chosenProxy = targetUrl.protocol === "https:"
@@ -214,7 +214,7 @@ async function requestUpstreamWithCurl(
       })(),
       { env: curlEnv, timeoutMs: 180000 },
     );
-    const marker = "\n__ECOCLAW_CURL_STATUS__:";
+    const marker = "\n__UPSTREAM_CURL_STATUS__:";
     const idx = stdout.lastIndexOf(marker);
     if (idx < 0) throw new Error("curl missing status marker");
     const text = stdout.slice(0, idx);

@@ -52,9 +52,9 @@ This migration has already landed:
 - `~/.openclaw/ecoclaw-plugin-state`
 - `stateDir/ecoclaw/...`
 - `.ecoclaw-archives`
-- `[ecoclaw persisted tool_result]`
-- `[EcoClaw Recovery Protocol]`
-- `ecoclaw-pfx-*`
+- `[persisted tool result]`
+- `[Recovery Protocol]`
+- `runtime-pfx-*`
 
 ## Design Rule
 

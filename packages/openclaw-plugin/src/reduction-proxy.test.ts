@@ -106,7 +106,7 @@ test("rewritePayloadForStablePrefix preserves content shape and injects dynamic 
   assert.match(String(payload.input[1].content[0].text), /- WORKDIR: \/tmp\/pinchbench\/0213\/agent_workspace_j0013/);
   assert.match(String(payload.input[1].content[0].text), /- AGENT_ID: bench-tokenpilot-gpt-5-4-mini-0213-j0013/);
   assert.match(String(payload.input[1].content[0].text), /Please continue\./);
-  assert.match(out.promptCacheKey, /^ecoclaw-pfx-/);
+  assert.match(out.promptCacheKey, /^runtime-pfx-/);
 });
 
 test("applyProxyReductionToInput still runs with policy-only before-call modules", async () => {

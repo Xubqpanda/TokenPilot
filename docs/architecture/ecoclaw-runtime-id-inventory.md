@@ -100,17 +100,17 @@ formats. Renaming them carelessly would break compatibility or invalidate
 persisted state.
 
 - [recovery-protocol.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/page-in/recovery-protocol.ts)
-  - `[EcoClaw Recovery Protocol]`
+  - `[Recovery Protocol]`
   - `__ecoclaw_reduction_applied`
   - `__ecoclaw_replay_raw`
 - [reduction-context.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/request-preprocessing/reduction-context.ts)
-  - `[ecoclaw persisted tool_result]`
+  - `[persisted tool result]`
 - [tool-result-persist.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/runtime-core/src/archive-recovery/tool-result-persist.ts)
   - preview / persist markers containing `ecoclaw`
 - [stable-prefix.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/request-preprocessing/stable-prefix.ts)
-  - `ecoclaw-pfx-*`
+  - `runtime-pfx-*`
 - [upstream.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/upstream.ts)
-  - `__ECOCLAW_CURL_STATUS__`
+  - `__UPSTREAM_CURL_STATUS__`
 
 ### Workspace package names
 

@@ -136,7 +136,7 @@ function computeStablePromptCacheKey(
     tools: summarizeToolsFingerprint(tools),
   });
   const digest = createHash("sha256").update(seed).digest("hex").slice(0, 24);
-  return `ecoclaw-pfx-${digest}`;
+  return `runtime-pfx-${digest}`;
 }
 
 function replaceContentWithText(content: any, nextText: string): any {

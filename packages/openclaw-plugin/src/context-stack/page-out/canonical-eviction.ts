@@ -14,7 +14,7 @@ export async function applyCanonicalEviction(
   return applyCanonicalEvictionBase({
     ...params,
     archiveDir: pluginStateSubdir(params.stateDir, "canonical-eviction", "task"),
-    persistedBy: "ecoclaw.context_engine.eviction",
+    persistedBy: "runtime.context_engine.eviction",
     archiveSourceLabel: "canonical_task_eviction",
   });
 }

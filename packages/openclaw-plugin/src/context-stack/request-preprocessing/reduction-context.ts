@@ -74,8 +74,8 @@ function isContextSafePersistedInputItem(item: any): boolean {
       if ((contextSafe as Record<string, unknown>).excludedFromContext === true) return true;
     }
   }
-  const marker = "[ecoclaw persisted tool_result]";
-  if (typeof item.content === "string" && item.content.includes(marker)) return true;
+  const markers = ["[persisted tool result]"];
+  if (typeof item.content === "string" && markers.some((marker) => item.content.includes(marker))) return true;
   if (Array.isArray(item.content)) {
     for (const block of item.content) {
       if (!block || typeof block !== "object") continue;
@@ -85,7 +85,7 @@ function isContextSafePersistedInputItem(item: any): boolean {
           : typeof (block as Record<string, unknown>).content === "string"
             ? String((block as Record<string, unknown>).content)
             : "";
-      if (text.includes(marker)) return true;
+      if (markers.some((marker) => text.includes(marker))) return true;
     }
   }
   return false;

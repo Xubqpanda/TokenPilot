@@ -1,7 +1,7 @@
 import { MEMORY_FAULT_RECOVER_TOOL_NAME } from "@tokenpilot/runtime-core";
 
 const MEMORY_FAULT_PROTOCOL_INSTRUCTIONS = [
-  "[EcoClaw Recovery Protocol]",
+  "[Recovery Protocol]",
   `If a prior tool result contains \`[Tool payload trimmed]\`, that notice gives you a dataKey for the internal tool \`${MEMORY_FAULT_RECOVER_TOOL_NAME}\`.`,
   `When you need omitted content, call \`${MEMORY_FAULT_RECOVER_TOOL_NAME}\` with that dataKey instead of replying with plain text.`,
   `\`${MEMORY_FAULT_RECOVER_TOOL_NAME}\` behaves like an internal read of archived content. Do not call the original tool again for the same content.`,
@@ -11,7 +11,7 @@ const MEMORY_FAULT_PROTOCOL_INSTRUCTIONS = [
 export function injectMemoryFaultProtocolInstructions(payload: any): boolean {
   if (!payload || typeof payload !== "object") return false;
   const current = typeof payload.instructions === "string" ? payload.instructions : "";
-  if (current.includes("[EcoClaw Recovery Protocol]")) return false;
+  if (current.includes("[Recovery Protocol]")) return false;
   payload.instructions = current
     ? `${current}\n\n${MEMORY_FAULT_PROTOCOL_INSTRUCTIONS}`
     : MEMORY_FAULT_PROTOCOL_INSTRUCTIONS;
