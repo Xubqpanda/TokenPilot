@@ -19,6 +19,7 @@ directory in this repo.
 - [Runtime-Neutral Contracts Plan](architecture/runtime-neutral-contracts-plan.md) - Contract split between `kernel`, `layers`, `runtime-core`, and host adapters
 - [OpenClaw Plugin Extraction Inventory](architecture/openclaw-plugin-extraction-inventory.md) - Current boundary between adapter-only code, extracted shared logic, and mixed request-preprocessing surfaces
 - [Runtime Rename Migration Plan](architecture/runtime-rename-migration-plan.md) - Staged compatibility plan for renaming plugin ids, provider prefixes, env vars, package names, and persisted markers
+- [Workspace Package Rename Plan](architecture/workspace-package-rename-plan.md) - Staged build migration for moving shared packages from `@ecoclaw/*` to neutral workspace names
 - [PinchBench Experiments README](../experiments/pinchbench/README.md) - Narrowed first-pass experiments merge target
 
 ## Plans
@@ -56,4 +57,3 @@ Old documentation from `EcoClaw_read_before_exe/`:
 - `task_plan.txt` - moved to `plans/eviction-plan.md`
 - `PICHAY.txt` - old design reference, removed from the active docs index
 - `notice_background.txt` - archived (background context, not current design)
-
