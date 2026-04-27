@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { join } from "node:path";
 import {
   applyCanonicalEviction as applyCanonicalEvictionBase,
   computeClosureDeferredTaskInfo,
   type EvictionHelpers,
 } from "@tokenpilot/history";
+import { pluginStateSubdir } from "@tokenpilot/runtime-core";
 
 export { computeClosureDeferredTaskInfo, type EvictionHelpers };
 
@@ -13,7 +13,7 @@ export async function applyCanonicalEviction(
 ): ReturnType<typeof applyCanonicalEvictionBase> {
   return applyCanonicalEvictionBase({
     ...params,
-    archiveDir: join(params.stateDir, "ecoclaw", "canonical-eviction", "task"),
+    archiveDir: pluginStateSubdir(params.stateDir, "canonical-eviction", "task"),
     persistedBy: "ecoclaw.context_engine.eviction",
     archiveSourceLabel: "canonical_task_eviction",
   });

@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import { homedir, tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { mkdir, appendFile, readFile, rm, writeFile, mkdtemp } from "node:fs/promises";
+import { pluginStateSubdir } from "@tokenpilot/runtime-core";
 
 export type UpstreamModelDef = {
   id: string;
@@ -154,7 +155,7 @@ async function appendUpstreamTransportTrace(
   record: Record<string, unknown>,
 ): Promise<void> {
   try {
-    const tracePath = join(stateDir, "ecoclaw", "upstream-transport-trace.jsonl");
+    const tracePath = pluginStateSubdir(stateDir, "upstream-transport-trace.jsonl");
     await mkdir(dirname(tracePath), { recursive: true });
     await appendFile(tracePath, `${JSON.stringify({ at: new Date().toISOString(), ...record })}\n`, "utf8");
   } catch {

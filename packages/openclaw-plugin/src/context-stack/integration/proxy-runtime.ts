@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { join, dirname } from "node:path";
 import { mkdir, appendFile } from "node:fs/promises";
+import { pluginStateSubdir } from "@tokenpilot/runtime-core";
 import type { UpstreamConfig, UpstreamHttpResponse } from "./upstream.js";
 
 function extractItemText(item: any, extractInputText: (input: any) => string): string {
@@ -259,7 +260,7 @@ export async function startEmbeddedResponsesProxy(
           payload?.previous_response_id ?? "",
           Array.isArray(payload?.input) ? payload.input.length : -1,
         ])).digest("hex").slice(0, 16);
-        const proxyLogPath = join(cfg.stateDir, "ecoclaw", "proxy-requests.jsonl");
+        const proxyLogPath = pluginStateSubdir(cfg.stateDir, "proxy-requests.jsonl");
         const logRecord = {
           at: requestAt,
           requestId,
@@ -472,7 +473,7 @@ export async function startEmbeddedResponsesProxy(
           parsedResponse?.id ?? "",
           upstreamRespFinal.status,
         ])).digest("hex").slice(0, 16);
-        const proxyRespLogPath = join(cfg.stateDir, "ecoclaw", "proxy-responses.jsonl");
+        const proxyRespLogPath = pluginStateSubdir(cfg.stateDir, "proxy-responses.jsonl");
         const respRecord = {
           at: responseAt,
           requestId: responseRequestId,

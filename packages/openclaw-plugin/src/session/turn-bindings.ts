@@ -1,5 +1,6 @@
-import { join, dirname } from "node:path";
+import { dirname } from "node:path";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { pluginStateSubdir, pluginStateSubdirCandidates } from "@tokenpilot/runtime-core";
 
 export type RecentTurnBinding = {
   userMessage: string;
@@ -10,33 +11,40 @@ export type RecentTurnBinding = {
 };
 
 function recentTurnBindingsPath(stateDir: string): string {
-  return join(stateDir, "ecoclaw", "controls", "recent-turn-bindings.json");
+  return pluginStateSubdir(stateDir, "controls", "recent-turn-bindings.json");
+}
+
+function recentTurnBindingsPathCandidates(stateDir: string): string[] {
+  return pluginStateSubdirCandidates(stateDir, "controls", "recent-turn-bindings.json");
 }
 
 export function loadRecentTurnBindingsFromState(
   stateDir: string,
   normalizeTurnBindingMessage: (text: string) => string,
 ): RecentTurnBinding[] {
-  try {
-    const parsed = JSON.parse(readFileSync(recentTurnBindingsPath(stateDir), "utf8"));
-    if (!Array.isArray(parsed)) return [];
-    const out: RecentTurnBinding[] = [];
-    for (const entry of parsed) {
-      if (!entry || typeof entry !== "object") continue;
-      const userMessage = String((entry as any).userMessage ?? "").trim();
-      const matchKey =
-        String((entry as any).matchKey ?? "").trim() || normalizeTurnBindingMessage(userMessage);
-      const sessionKey = String((entry as any).sessionKey ?? "").trim();
-      const upstreamSessionId = String((entry as any).upstreamSessionId ?? "").trim() || undefined;
-      const atRaw = Number((entry as any).at ?? 0);
-      const at = Number.isFinite(atRaw) ? atRaw : 0;
-      if (!userMessage || !matchKey || !sessionKey || !at) continue;
-      out.push({ userMessage, matchKey, sessionKey, upstreamSessionId, at });
+  for (const path of recentTurnBindingsPathCandidates(stateDir)) {
+    try {
+      const parsed = JSON.parse(readFileSync(path, "utf8"));
+      if (!Array.isArray(parsed)) continue;
+      const out: RecentTurnBinding[] = [];
+      for (const entry of parsed) {
+        if (!entry || typeof entry !== "object") continue;
+        const userMessage = String((entry as any).userMessage ?? "").trim();
+        const matchKey =
+          String((entry as any).matchKey ?? "").trim() || normalizeTurnBindingMessage(userMessage);
+        const sessionKey = String((entry as any).sessionKey ?? "").trim();
+        const upstreamSessionId = String((entry as any).upstreamSessionId ?? "").trim() || undefined;
+        const atRaw = Number((entry as any).at ?? 0);
+        const at = Number.isFinite(atRaw) ? atRaw : 0;
+        if (!userMessage || !matchKey || !sessionKey || !at) continue;
+        out.push({ userMessage, matchKey, sessionKey, upstreamSessionId, at });
+      }
+      return out;
+    } catch {
+      // Try next candidate path.
     }
-    return out;
-  } catch {
-    return [];
   }
+  return [];
 }
 
 export function persistRecentTurnBindingsToState(stateDir: string, bindings: RecentTurnBinding[]): void {

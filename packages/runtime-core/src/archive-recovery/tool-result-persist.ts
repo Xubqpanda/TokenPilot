@@ -5,7 +5,7 @@ import {
   buildArchiveLocation,
   buildRecoveryHint,
 } from "./index.js";
-import { hashText } from "./archive-paths.js";
+import { hashText, pluginStateSubdir } from "./archive-paths.js";
 
 export function buildToolResultPreview(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
@@ -129,7 +129,7 @@ export function planToolResultPersistence(params: {
       toolName: toolName || "tool",
       dataKey,
       originalText: text,
-      archiveDir: join(params.stateDir, "ecoclaw", "artifacts", toolPart),
+      archiveDir: pluginStateSubdir(params.stateDir, "artifacts", toolPart),
       metadata: {
         toolCallId: callId || undefined,
         persistedBy: "ecoclaw.tool_result_persist",

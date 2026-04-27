@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { join, dirname } from "node:path";
 import { mkdir, appendFile } from "node:fs/promises";
+import { pluginStateSubdir } from "@tokenpilot/runtime-core";
 
 function toJsonSafe(value: unknown, seen = new WeakSet<object>()): unknown {
   if (value == null) return value;
@@ -41,7 +42,7 @@ export async function appendForwardedInputDump(
   payload: Record<string, unknown>,
 ): Promise<void> {
   const safeSessionId = String(sessionId || "session").replace(/[^a-zA-Z0-9._-]+/g, "_");
-  await appendJsonl(join(stateDir, "ecoclaw", "forwarded-inputs", `${safeSessionId}.jsonl`), payload);
+  await appendJsonl(pluginStateSubdir(stateDir, "forwarded-inputs", `${safeSessionId}.jsonl`), payload);
 }
 
 export async function appendReductionPassTrace(
@@ -68,7 +69,7 @@ export async function appendReductionPassTrace(
   },
 ): Promise<void> {
   if (!Array.isArray(payload.report) || payload.report.length === 0) return;
-  const tracePath = join(stateDir, "ecoclaw", "reduction-pass-trace.jsonl");
+  const tracePath = pluginStateSubdir(stateDir, "reduction-pass-trace.jsonl");
   for (const entry of payload.report) {
     const beforeChars = Number(entry.beforeChars ?? 0);
     const afterChars = Number(entry.afterChars ?? beforeChars);

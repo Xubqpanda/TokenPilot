@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { LEGACY_PLUGIN_STATE_DIRNAME, pluginStateSubdir } from "@tokenpilot/runtime-core";
 import type { RuntimeModule, RuntimeModuleRuntime } from "../../../../kernel/src/interfaces.js";
 import type { RuntimeTurnContext } from "../../../../kernel/src/types.js";
 import type { PolicyModuleConfig } from "../../../../layers/decision/src/policy.js";
@@ -105,7 +106,7 @@ export function normalizeConfig(
   const envWithAlias = (tokenpilotKey: string, ecoclawKey: string): string =>
     String(process.env[tokenpilotKey] ?? process.env[ecoclawKey] ?? "").trim();
   const cfg = (raw ?? {}) as PluginRuntimeConfig;
-  const defaultStateDir = join(homedir(), ".openclaw", "ecoclaw-plugin-state");
+  const defaultStateDir = join(homedir(), ".openclaw", LEGACY_PLUGIN_STATE_DIRNAME);
   const stateDir = cfg.stateDir ?? defaultStateDir;
   const modules = cfg.modules ?? {};
   const summary = cfg.summary ?? {};
@@ -135,7 +136,7 @@ export function normalizeConfig(
     proxyApiKey: cfg.proxyApiKey,
     stateDir,
     debugTapProviderTraffic: cfg.debugTapProviderTraffic ?? false,
-    debugTapPath: cfg.debugTapPath ?? join(stateDir, "ecoclaw", "provider-traffic.jsonl"),
+    debugTapPath: cfg.debugTapPath ?? pluginStateSubdir(stateDir, "provider-traffic.jsonl"),
     proxyAutostart: cfg.proxyAutostart ?? true,
     proxyPort: Math.max(1025, Math.min(65535, cfg.proxyPort ?? 17667)),
     proxyMode: { pureForward: proxyMode.pureForward ?? false },
