@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { loadSessionTaskRegistry } from "../../../layers/history/src/registry.js";
-import { annotateCanonicalMessagesWithTaskAnchors } from "./anchors.js";
+import { loadSessionTaskRegistry } from "../../../../layers/history/src/registry.js";
+import { annotateCanonicalMessagesWithTaskAnchors } from "./canonical-anchors.js";
 import {
   appendCanonicalTranscript,
   estimateMessagesChars,
   loadCanonicalState,
   type EcoCanonicalState,
-} from "./state.js";
-import { applyCanonicalEviction } from "./eviction.js";
+} from "./canonical-state.js";
+import { applyCanonicalEviction } from "../../canonical/eviction.js";
 
 type SyncHelpers<TEntry> = {
   appendTaskStateTrace: (stateDir: string, payload: Record<string, unknown>) => Promise<void>;

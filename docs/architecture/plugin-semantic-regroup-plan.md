@@ -67,9 +67,9 @@ Responsibility:
 Current files:
 
 - `src/context-stack/page-out/transcript-sync.ts`
-- `src/canonical/state.ts`
-- `src/canonical/anchors.ts`
-- `src/canonical/rewrite.ts`
+- `src/context-stack/page-out/canonical-state.ts`
+- `src/context-stack/page-out/canonical-anchors.ts`
+- `src/context-stack/page-out/canonical-rewrite.ts`
 - `src/canonical/eviction.ts`
 - `src/session/topology.ts`
 - `src/session/turn-bindings.ts`
