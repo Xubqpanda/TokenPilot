@@ -310,7 +310,9 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--suite",
-        default="all",
+        default=os.environ.get("TOKENPILOT_SUITE")
+        or os.environ.get("ECOCLAW_SUITE")
+        or "all",
         help='Tasks to run: "all", "automated-only", or comma-separated IDs',
     )
     parser.add_argument(
@@ -321,13 +323,17 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--timeout-multiplier",
         type=float,
-        default=1.0,
+        default=float(
+            os.environ.get("TOKENPILOT_TIMEOUT_MULTIPLIER")
+            or os.environ.get("ECOCLAW_TIMEOUT_MULTIPLIER")
+            or "1.0"
+        ),
         help="Scale all task timeouts",
     )
     parser.add_argument(
         "--runs",
         type=int,
-        default=1,
+        default=int(os.environ.get("TOKENPILOT_RUNS") or os.environ.get("ECOCLAW_RUNS") or "1"),
         help="Number of runs per task for averaging",
     )
     parser.add_argument(
@@ -340,7 +346,9 @@ def _parse_args() -> argparse.Namespace:
         "--session-mode",
         type=str,
         choices=["isolated", "continuous"],
-        default="isolated",
+        default=os.environ.get("TOKENPILOT_SESSION_MODE")
+        or os.environ.get("ECOCLAW_SESSION_MODE")
+        or "isolated",
         help="Transcript/session isolation mode: isolated (default) or continuous (sequential accumulated transcript with per-task slicing)",
     )
     parser.add_argument(
