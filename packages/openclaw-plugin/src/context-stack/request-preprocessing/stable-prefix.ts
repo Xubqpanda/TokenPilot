@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import {
   prependTextToContent,
   rewriteRootPromptForStablePrefix,
-} from "../context-stack/request-preprocessing/root-prompt-stabilizer.js";
+} from "./root-prompt-stabilizer.js";
 
 export function normalizeText(input: string): string {
   return input.replace(/\s+/g, " ").trim();

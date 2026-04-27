@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { runReductionAfterCall, resolveReductionPasses } from "../execution/reduction/pipeline.js";
-import type { RuntimeTurnResult } from "../../../kernel/src/types.js";
+import { runReductionAfterCall, resolveReductionPasses } from "../../execution/reduction/pipeline.js";
+import type { RuntimeTurnResult } from "../../../../kernel/src/types.js";
 
 export type AfterCallPassToggles = {
   repeatedReadDedup?: boolean;

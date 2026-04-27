@@ -42,11 +42,11 @@ Responsibility:
 
 Current files:
 
-- `src/proxy/stable-prefix.ts`
-- `src/proxy/before-call-reduction.ts`
-- `src/proxy/after-call-reduction.ts`
-- `src/proxy/reduction-context.ts`
-- `src/proxy/reduction-helpers.ts`
+- `src/context-stack/request-preprocessing/stable-prefix.ts`
+- `src/context-stack/request-preprocessing/before-call-reduction.ts`
+- `src/context-stack/request-preprocessing/after-call-reduction.ts`
+- `src/context-stack/request-preprocessing/reduction-context.ts`
+- `src/context-stack/request-preprocessing/reduction-helpers.ts`
 - `src/context-stack/request-preprocessing/tool-results-persist.ts`
 - `src/context-stack/request-preprocessing/root-prompt-stabilizer.ts`
 

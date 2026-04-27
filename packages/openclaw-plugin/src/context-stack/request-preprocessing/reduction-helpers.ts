@@ -2,8 +2,8 @@
 import {
   listRawSemanticTurnSeqs,
   loadRawSemanticTurnRecord,
-} from "../../../layers/history/src/raw-semantic.js";
-import { loadSessionTaskRegistry } from "../../../layers/history/src/registry.js";
+} from "../../../../layers/history/src/raw-semantic.js";
+import { loadSessionTaskRegistry } from "../../../../layers/history/src/registry.js";
 
 export async function loadSegmentAnchorByCallId(
   stateDir: string,

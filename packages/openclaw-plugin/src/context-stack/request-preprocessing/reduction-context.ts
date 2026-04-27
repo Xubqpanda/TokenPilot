@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { ContextSegment, RuntimeTurnContext } from "../../../kernel/src/types.js";
+import type { ContextSegment, RuntimeTurnContext } from "../../../../kernel/src/types.js";
 
 export type ProxyReductionBinding =
   | { segmentId: string; itemIndex: number; field: "arguments" | "output" | "result"; beforeLen: number }
