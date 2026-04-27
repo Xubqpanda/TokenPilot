@@ -1,4 +1,4 @@
-import type { ContextSegment, RuntimeTurnContext, RuntimeTurnResult, RuntimeStateStore } from "@ecoclaw/kernel";
+import type { ContextSegment, RuntimeTurnContext, RuntimeTurnResult } from "@ecoclaw/kernel";
 
 export type BuiltinReductionPassId =
   | "tool_payload_trim"
@@ -33,7 +33,6 @@ export type ReductionPassSpec = {
 export type ReductionBeforeCallContext = {
   turnCtx: RuntimeTurnContext;
   spec: ReductionPassSpec;
-  stateStore?: RuntimeStateStore;
 };
 
 export type ReductionBeforeCallOutcome = {
@@ -122,7 +121,6 @@ export type ReductionMetadata = {
 export type ReductionModuleConfig = {
   passes?: ReductionPassSpec[];
   registry?: ReductionPassRegistry;
-  stateStore?: RuntimeStateStore;
   maxToolChars?: number;
   strategy?: "rule" | "llmlingua2";
   passOptions?: Record<string, Record<string, unknown>>;

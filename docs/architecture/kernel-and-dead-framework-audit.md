@@ -44,7 +44,7 @@ pipeline, but no live code imports them.
 
 - `packages/storage/fs`
 
-It implements `RuntimeStateStore`, but the live plugin no longer uses that
+It implemented `RuntimeStateStore`, but the live plugin no longer used that
 abstraction. The current runtime writes state directly via plugin-local
 canonical/trace/artifact files.
 
@@ -54,21 +54,19 @@ These files belong to an older prototype runtime pipeline. They are not the
 current canonical execution spine, but some of their types are still imported.
 
 - `packages/kernel/src/interfaces.ts`
-- `packages/kernel/src/pipeline.ts`
-- `packages/kernel/src/scheduler.ts`
 
 ### Why they are not deleted yet
 
 - `RuntimeModule` and `RuntimeModuleRuntime` are still imported in active code
-- `RuntimeStateStore` is still referenced by plugin-local reduction code
-- deleting them now would force a broader contract rewrite
+- the unused `RuntimeStateStore` dependency has already been removed from active reduction code
+- the unused pipeline/scheduler prototype has already been removed
 
 ## Recommended Cleanup Order
 
 1. remove dead provider/storage packages
 2. remove dead path aliases for those packages
 3. keep the active kernel contracts intact
-4. later revisit `interfaces.ts`, `pipeline.ts`, and `scheduler.ts`
+4. later revisit whether `interfaces.ts` should remain as the home for the two remaining live module contracts
 
 ## Current rule
 

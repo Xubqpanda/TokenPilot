@@ -1,4 +1,4 @@
-import type { ContextSegment, RuntimeStateStore, RuntimeTurnContext } from "@ecoclaw/kernel";
+import type { ContextSegment, RuntimeTurnContext } from "@ecoclaw/kernel";
 import type { ReductionPassHandler } from "../reduction/types.js";
 import {
   archiveContent,
@@ -199,34 +199,7 @@ const deduplicateRead = async (
 async function resolveFirstReadSegment(
   firstReadId: string,
   turnCtx: RuntimeTurnContext,
-  stateStore?: RuntimeStateStore,
 ): Promise<ContextSegment | undefined> {
-  // Priority 1: Try stateStore first - firstReadSegmentId typically points to a historical turn
-  if (stateStore) {
-    try {
-      // Read turns.jsonl to find the segment
-      const turns = await stateStore.listTurns(turnCtx.sessionId);
-
-      // Search all turns for the matching segment
-      for (const turn of turns) {
-        const found = turn.segments.find((s) => s.id === firstReadId);
-        if (found) {
-          return {
-            id: found.id,
-            kind: found.kind,
-            text: found.text,
-            priority: found.priority,
-            source: found.source ?? "stateStore",
-            metadata: found.metadata,
-          };
-        }
-      }
-    } catch {
-      // Fall through to current context as fallback
-    }
-  }
-
-  // Priority 2: Fallback to current turn context
   const inContext = turnCtx.segments.find((s) => s.id === firstReadId);
   if (inContext) {
     return inContext;
@@ -236,7 +209,7 @@ async function resolveFirstReadSegment(
 }
 
 export const repeatedReadDedupPass: ReductionPassHandler = {
-  beforeCall: async ({ turnCtx, spec, stateStore }) => {
+  beforeCall: async ({ turnCtx, spec }) => {
     const config = resolveConfig(spec.options);
 
     if (!config.enabled) {
@@ -279,7 +252,7 @@ export const repeatedReadDedupPass: ReductionPassHandler = {
     for (const instr of repeatedReadInstructions) {
       const firstReadId = instr.parameters?.firstReadSegmentId as string | undefined;
       if (firstReadId) {
-        const firstReadSegment = await resolveFirstReadSegment(firstReadId, turnCtx, stateStore);
+        const firstReadSegment = await resolveFirstReadSegment(firstReadId, turnCtx);
         if (firstReadSegment) {
           for (const id of instr.segmentIds) {
             firstReadMap.set(id, firstReadSegment);

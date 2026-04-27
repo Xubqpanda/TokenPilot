@@ -1,4 +1,4 @@
-import type { RuntimeStateStore, RuntimeTurnContext, RuntimeTurnResult } from "@ecoclaw/kernel";
+import type { RuntimeTurnContext, RuntimeTurnResult } from "@ecoclaw/kernel";
 import { resolveReductionPass, execOutputTruncationBeforeCallPass } from "./registry.js";
 import type {
   ReductionMetadata,
@@ -13,7 +13,6 @@ export type RunReductionBeforeCallParams = {
   turnCtx: RuntimeTurnContext;
   passes: ReductionPassSpec[];
   registry?: ReductionPassRegistry;
-  stateStore?: RuntimeStateStore;
 };
 
 export type RunReductionAfterCallParams = {
@@ -153,7 +152,7 @@ export function readReductionMetadata(metadata?: Record<string, unknown>): Reduc
 export async function runReductionBeforeCall(
   params: RunReductionBeforeCallParams,
 ): Promise<{ turnCtx: RuntimeTurnContext; report: ReductionReportEntry[] }> {
-  const { turnCtx, passes, registry, stateStore } = params;
+  const { turnCtx, passes, registry } = params;
   let currentCtx: RuntimeTurnContext = {
     ...turnCtx,
     segments: turnCtx.segments.map((segment) => ({ ...segment })),
@@ -198,7 +197,6 @@ export async function runReductionBeforeCall(
     const outcome = await handler.beforeCall({
       turnCtx: currentCtx,
       spec,
-      stateStore,
     });
 
     if (outcome.turnCtx) {
