@@ -384,7 +384,7 @@ with open(config_path, "w", encoding="utf-8") as f:
     f.write("\n")
 
 print(
-    "Ensured ecoclaw plugin config:",
+    "Ensured plugin runtime config:",
     f"loadPath={plugin_load_path}",
     f"port={ecoclaw_cfg.get('proxyPort')}",
     f"base={ecoclaw_cfg.get('proxyBaseUrl')}",
@@ -408,7 +408,7 @@ sanitize_ecoclaw_plugin_config() {
   local config_path="${OPENCLAW_CONFIG_PATH:-${HOME}/.openclaw/openclaw.json}"
   local enable_eviction="${ECOCLAW_ENABLE_EVICTION:-false}"
   if [[ ! -f "${config_path}" ]]; then
-    echo "WARN: openclaw config not found, skip ecoclaw config sanitize: ${config_path}" >&2
+    echo "WARN: openclaw config not found, skip plugin runtime config sanitize: ${config_path}" >&2
     return 0
   fi
 

@@ -1,19 +1,44 @@
-# `ecoclaw` Runtime ID Inventory
+# `ecoclaw` Runtime Naming Inventory
+
+## Purpose
 
 This document records the remaining live `ecoclaw` naming surface after the
-first TokenPilot brand-layer cleanup.
+adapter split into:
 
-The goal is not to rename everything immediately. The goal is to classify what
-still exists, why it exists, and what migration risk each class carries.
+- `packages/kernel`
+- `packages/layers/*`
+- `packages/runtime-core`
+- `packages/openclaw-plugin`
 
-## Classification
+The goal is not to rename everything immediately. The goal is to separate:
 
-### Class A: Runtime/Internal IDs That Must Stay Stable For Now
+1. high-risk runtime identifiers
+2. low-risk internal names
+3. documentation and log wording
 
-These identifiers are part of the live runtime contract. Changing them would
-require config migration, compatibility fallback, and smoke validation.
+## Current Structure Context
 
-#### Plugin identity
+The codebase is no longer one large plugin package. The naming surface now
+spans four layers:
+
+1. `kernel`
+2. `layers`
+3. `runtime-core`
+4. `openclaw-plugin`
+
+That split matters because some `ecoclaw` names are now:
+
+- adapter-only runtime ids
+- shared workspace package names
+- persisted path / artifact markers
+- purely historical or display-only wording
+
+## Class A: High-Risk Runtime IDs
+
+These identifiers are part of the live runtime contract. They should not be
+changed during a simple brand refresh.
+
+### Plugin identity
 
 - [openclaw.plugin.json](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/openclaw.plugin.json)
   - `id = "ecoclaw"`
@@ -22,66 +47,72 @@ require config migration, compatibility fallback, and smoke validation.
 - [index.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/index.ts)
   - runtime registration still uses `id: "ecoclaw"`
 
-#### Context engine identity
+### Context-engine identity
 
 - [context-engine.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/context-engine.ts)
   - `id: "ecoclaw-context"`
 - [index.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/index.ts)
   - `api.registerContextEngine("ecoclaw-context", ...)`
 
-#### Provider namespace
+### Provider namespace
 
-- [proxy/provider.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/proxy-provider.ts)
+- [proxy-provider.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/proxy-provider.ts)
   - provider `id: "ecoclaw"`
   - registration of `ecoclaw/*`
-- [proxy/upstream.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/upstream.ts)
+- [upstream.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/upstream.ts)
   - mirrored model keys under `ecoclaw/<model>`
 - [README.md](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/README.md)
   - documented runtime model prefix `ecoclaw/<model>`
 
-#### Environment variable prefix
+### Environment-variable prefixes
 
 - [config.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/config.ts)
   - `ECOCLAW_TASK_STATE_ESTIMATOR_*`
-- [proxy/upstream.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/upstream.ts)
+- [upstream.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/upstream.ts)
   - `ECOCLAW_UPSTREAM_*`
-- [execution/archive-recovery/archive-paths.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/execution/archive-recovery/archive-paths.ts)
+- [archive-paths.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/runtime-core/src/archive-recovery/archive-paths.ts)
   - `ECOCLAW_STATE_DIR`
-- [docs/scripts/smoke_isolated_gateway.sh](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/docs/scripts/smoke_isolated_gateway.sh)
-  - benchmark/runtime smoke script still depends on `ECOCLAW_*`
+- [common.sh](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/experiments/pinchbench/scripts/common.sh)
+  - runtime setup still depends on many `ECOCLAW_*`
 
-#### State directory and artifact layout
+### State directory and artifact layout
 
 - [config.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/config.ts)
   - default state dir `~/.openclaw/ecoclaw-plugin-state`
-- [canonical/state.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/page-out/canonical-state.ts)
-  - `stateDir/ecoclaw/canonical-state/...`
-- [tool-results/persist.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/request-preprocessing/tool-results-persist.ts)
-  - `stateDir/ecoclaw/artifacts/...`
+- [archive-paths.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/runtime-core/src/archive-recovery/archive-paths.ts)
+  - `.ecoclaw-archives`
+  - `stateDir/ecoclaw/tool-result-archives/...`
+- [canonical-eviction.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/page-out/canonical-eviction.ts)
+  - `stateDir/ecoclaw/canonical-eviction/...`
 - [trace/io.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/trace/io.ts)
   - `stateDir/ecoclaw/forwarded-inputs/...`
   - `stateDir/ecoclaw/reduction-pass-trace.jsonl`
-- [proxy/runtime.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/proxy-runtime.ts)
+- [proxy-runtime.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/proxy-runtime.ts)
   - `stateDir/ecoclaw/proxy-requests.jsonl`
   - `stateDir/ecoclaw/proxy-responses.jsonl`
-- [session/turn-bindings.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/session/turn-bindings.ts)
+- [turn-bindings.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/session/turn-bindings.ts)
   - `stateDir/ecoclaw/controls/recent-turn-bindings.json`
 
-#### Prompt / payload protocol markers
+### Prompt / payload / persisted markers
 
-These are not just names. They are protocol markers in payloads and recovery
-paths, so changing them carelessly would break compatibility.
+These are protocol markers, persisted content markers, or stable cache-key
+formats. Renaming them carelessly would break compatibility or invalidate
+persisted state.
 
-- [recovery/protocol.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/page-in/recovery-protocol.ts)
+- [recovery-protocol.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/page-in/recovery-protocol.ts)
   - `[EcoClaw Recovery Protocol]`
   - `__ecoclaw_reduction_applied`
   - `__ecoclaw_replay_raw`
-- [proxy/reduction-context.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/request-preprocessing/reduction-context.ts)
+- [reduction-context.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/request-preprocessing/reduction-context.ts)
   - `[ecoclaw persisted tool_result]`
-- [tool-results/persist.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/request-preprocessing/tool-results-persist.ts)
-  - preview/persist markers containing `ecoclaw`
+- [tool-result-persist.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/runtime-core/src/archive-recovery/tool-result-persist.ts)
+  - preview / persist markers containing `ecoclaw`
+- [stable-prefix.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/request-preprocessing/stable-prefix.ts)
+  - `ecoclaw-pfx-*`
+- [upstream.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/upstream.ts)
+  - `__ECOCLAW_CURL_STATUS__`
 
-#### Package/workspace names
+### Workspace package names
 
 - [packages/kernel/package.json](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/kernel/package.json)
   - `@ecoclaw/kernel`
@@ -89,95 +120,104 @@ paths, so changing them carelessly would break compatibility.
   - `@ecoclaw/layer-history`
 - [packages/layers/decision/package.json](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/layers/decision/package.json)
   - `@ecoclaw/layer-decision`
+- [packages/runtime-core/package.json](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/runtime-core/package.json)
+  - `@ecoclaw/runtime-core`
 
-These package names are also runtime-adjacent because imports across the
-workspace depend on them.
+These are now cross-package import contracts, not just branding.
 
-## Class B: Code-Level Names That Can Eventually Gain TokenPilot Aliases
+## Class B: Internal Low-Risk Names
 
-These names are mostly internal symbols. They can be migrated with a normal
-refactor after the runtime ID layer has a compatibility plan.
+These are internal names that can be changed without a runtime compatibility
+migration, as long as normal build and smoke validation still pass.
 
-#### Types and factories
+### Internal code symbols already neutralized
 
-- [config.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/config.ts)
-  - `PluginRuntimeConfig`
-- [context-engine.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/context-engine.ts)
-  - `createPluginContextEngine`
+- `PluginRuntimeConfig`
+- `createPluginContextEngine`
+- `RUNTIME_EVENTS_METADATA_KEY`
+- `RUNTIME_EVENT_TYPES`
+- `__runtime_optimizer_embedded_proxy_runtime__`
 
-#### Event names and metadata keys
+These are examples of the right direction: remove brand coupling without
+touching live runtime ids.
 
-- [packages/kernel/src/events.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/kernel/src/events.ts)
-  - `RUNTIME_EVENTS_METADATA_KEY`
-  - `RUNTIME_EVENT_TYPES`
+### Remaining low-risk log wording
 
-#### Test fixtures and helper names
+- [runtime-register.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/runtime-register.ts)
+  - policy monitor log labels
+- [common.sh](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/experiments/pinchbench/scripts/common.sh)
+  - config/setup status wording
 
-- [reduction-proxy.test.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/reduction-proxy.test.ts)
-  - `ecoclaw-pfx-*`
+These can be normalized to `plugin-runtime` or other neutral labels without
+changing runtime contracts.
 
-The old `bench-ecoclaw-*` fixture strings have already been removed. The
-remaining `ecoclaw-pfx-*` assertion is still tied to a live cache-key format,
-so it is not a pure test-only name.
+## Class C: Brand/Documentation Surface
 
-#### Internal singleton keys
+These references are mostly wording, explanation, or host-product naming. They
+can continue to change as the project branding changes.
 
-- [runtime/register.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/runtime-register.ts)
-  - internal embedded-proxy singleton key already moved to the neutral
-    `__runtime_optimizer_embedded_proxy_runtime__`
+### Project and migration docs
 
-## Class C: Logging, Comments, and Historical References
-
-These are the lowest-risk `ecoclaw` references. They are not config keys or
-protocol markers, but many still provide useful continuity while the runtime ID
-remains unchanged.
-
-#### Logger prefixes
-
-- [runtime/register.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/runtime-register.ts)
-  - `[plugin-runtime] ...`
-- [proxy/runtime.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/proxy-runtime.ts)
-  - `[plugin-runtime] ...`
-- [proxy/upstream.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/integration/upstream.ts)
-  - `[plugin-runtime] ...`
-- [recovery/tool.ts](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/packages/openclaw-plugin/src/context-stack/page-in/recovery-tool.ts)
-  - `[plugin-runtime] ...`
-
-These have already been moved off the brand-specific `[ecoclaw]` prefix without
-changing config semantics.
-
-#### Historical docs and bug reports
-
-- [docs/bug-reports/index.md](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/docs/bug-reports/index.md)
-- [docs/tokenpilot-migration-plan.md](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/docs/tokenpilot-migration-plan.md)
+- [README.md](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/README.md)
 - [docs/run-guide.md](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/docs/run-guide.md)
+- [docs/tokenpilot-migration-plan.md](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/docs/tokenpilot-migration-plan.md)
+- [docs/bug-reports/index.md](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/docs/bug-reports/index.md)
+- [docs/architecture/openclaw-plugin-extraction-inventory.md](/mnt/20t/xubuqiang/EcoClaw/EcoClaw/docs/architecture/openclaw-plugin-extraction-inventory.md)
 
-Many of these references are preserved intentionally because they describe old
-run names, old paths, or current machine layout.
+### Host-product references
 
-## What Not To Rename During Brand-Layer Migration
+References to `OpenClaw` are not necessarily bad. Many of them are accurate
+host-runtime references, not project-brand references. Examples:
 
-Do **not** rename these as part of a simple brand refresh:
+- plugin runtime host badges in the main README
+- `OpenClaw` runtime setup in run guides
+- benchmark tasks that explicitly mention OpenClaw artifacts
 
-1. plugin id
-2. context engine id
-3. provider prefix
-4. environment variable prefix
-5. state directory basename
-6. payload/recovery protocol markers
-7. workspace package names
+These should only be changed when the wording is about our method or product,
+not when it accurately refers to the host runtime.
 
-Those belong to a dedicated compatibility migration.
+## What To Avoid In The Next Rename Pass
 
-## Recommended Next Step For Runtime Rename
+Do not mix these into one batch:
 
-When the project is ready to rename runtime identifiers:
+1. brand wording cleanup
+2. low-risk internal symbol cleanup
+3. runtime-id migration
 
-1. add `TokenPilot` aliases first
-2. keep `ecoclaw` as fallback during transition
-3. revalidate:
-   - `openclaw config validate`
-   - plugin build/typecheck
-   - continual baseline smoke
-   - continual method smoke
-4. only then consider removing old identifiers
+Only the first two belong in the next pass.
+
+## Recommended Rename Order
+
+### Phase 1
+
+- keep cleaning docs / README / display wording
+- neutralize low-risk logs and internal helper names
+
+### Phase 2
+
+- define alias and fallback strategy for runtime ids
+- decide how to handle `@ecoclaw/*` workspace package names
+- decide how to migrate persisted paths and markers
+
+### Phase 3
+
+- migrate plugin id, provider prefix, context-engine id, env prefixes, and
+  package names
+- revalidate with:
+  - `openclaw config validate`
+  - plugin build / typecheck
+  - benchmark method smoke
+  - benchmark baseline smoke
+
+## Summary
+
+At this point the ugly part of the old name is concentrated in runtime
+contracts, workspace package names, persisted state paths, and compatibility
+markers.
+
+That means the project is in a good position for:
+
+1. one more low-risk branding pass now
+2. a separate runtime-id migration later
+
+Those should remain separate.

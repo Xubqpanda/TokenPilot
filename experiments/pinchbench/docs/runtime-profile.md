@@ -3,8 +3,8 @@
 This document records the shared runtime setting used by the current
 PinchBench method runs.
 
-It is not a method algorithm note. It describes the common OpenClaw runtime
-that the experiment harness expects before per-run switches are applied, such
+It is not a method algorithm note. It describes the common host runtime
+profile that the experiment harness expects before per-run switches are applied, such
 as:
 
 - eviction enabled vs disabled
@@ -24,7 +24,7 @@ The current shared runtime profile installs:
 These are runtime capabilities available to the harness. Individual runs may
 still disable or bypass parts of the stack through benchmark-side config.
 
-## Built-in OpenClaw tools assumed by PinchBench
+## Built-in host tools assumed by PinchBench
 
 Current PinchBench runs assume the following built-in tools exist:
 
@@ -99,7 +99,7 @@ That installer currently:
 2. syncs it into `~/.openclaw/extensions/ecoclaw/`
 3. patches `~/.openclaw/openclaw.json` to the shared PinchBench runtime profile
 4. installs the shared exec allowlist
-5. validates the resulting OpenClaw config
+5. validates the resulting host-runtime config
 
 When the executable harness is consolidated into the main repository, this
 entrypoint should move under `experiments/` as well.

@@ -64,7 +64,7 @@ function logTaskStateMonitor(
           .join(", ")
       : "none";
   logger.info(
-    `[ecoclaw/task-state] session=${ctx.sessionId} applied=${taskState.applied === true} touched=${touchedTaskIds.length} transitions=[${transitionText}] rejected=[${rejectedText}]${note ? ` note=${note}` : ""}`,
+    `[plugin-runtime/task-state] session=${ctx.sessionId} applied=${taskState.applied === true} touched=${touchedTaskIds.length} transitions=[${transitionText}] rejected=[${rejectedText}]${note ? ` note=${note}` : ""}`,
   );
 }
 
@@ -92,7 +92,7 @@ function logEvictionPlanMonitor(
     ),
   );
   logger.info(
-    `[ecoclaw/eviction-plan] session=${ctx.sessionId} instructions=${instructions.length} tasks=${taskIds.length > 0 ? taskIds.join(", ") : "unknown"} policy=${typeof eviction.policy === "string" ? eviction.policy : "unknown"}`,
+    `[plugin-runtime/eviction-plan] session=${ctx.sessionId} instructions=${instructions.length} tasks=${taskIds.length > 0 ? taskIds.join(", ") : "unknown"} policy=${typeof eviction.policy === "string" ? eviction.policy : "unknown"}`,
   );
 }
 

@@ -3,8 +3,8 @@
 ## Scope
 
 This file is a short runtime sanity guide for local development of the
-OpenClaw plugin. Benchmark-specific runtime setup lives in the benchmark
-harness repository for now.
+plugin runtime adapter. Benchmark-specific runtime setup lives in the
+benchmark harness repository for now.
 
 The two paths below are the current local layout on this machine, not a
 stable brand-facing contract:
@@ -15,12 +15,12 @@ stable brand-facing contract:
 Use this guide when you need to verify:
 
 - the plugin build is the one actually running
-- local OpenClaw config is coherent
+- local host-runtime config is coherent
 - the runtime path is healthy before a smoke test
 
 ## Runtime vs Source
 
-The OpenClaw runtime does not load plugin source from this repo. The effective
+The host runtime does not load plugin source from this repo. The effective
 runtime artifact is:
 
 ```text
@@ -34,7 +34,7 @@ A successful local build does not mean the runtime is updated.
 When iterating on the plugin locally:
 
 1. Build the plugin package.
-2. Sync `dist/` into the OpenClaw extension directory.
+2. Sync `dist/` into the extension directory used by the host runtime.
 3. Verify the synced runtime artifact, not only the source build output.
 
 Typical commands:
@@ -94,7 +94,7 @@ unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY all_proxy
 
 If you are using the shared PinchBench runtime profile, prefer the benchmark
 installer and profile linked at the top of this file instead of hand-editing
-runtime config here.
+host-runtime config here.
 
 ## Smoke Test Order
 
