@@ -159,6 +159,65 @@ def _append_jsonl(path: Path, payload: Dict[str, Any]) -> None:
         handle.write(json.dumps(_make_json_safe(payload), ensure_ascii=False) + "\n")
 
 
+def _snapshot_workspace_for_task(
+    *,
+    run_id: str,
+    job_index: int,
+    task_id: str,
+    workspace_path: str,
+) -> str:
+    if not workspace_path:
+        return workspace_path
+    source_workspace = Path(workspace_path)
+    if not source_workspace.exists():
+        return workspace_path
+
+    snapshot_root = Path(f"/tmp/pinchbench/{run_id}/workspace_snapshots")
+    snapshot_root.mkdir(parents=True, exist_ok=True)
+    snapshot_path = snapshot_root / f"job_{job_index:04d}_{task_id}"
+    if snapshot_path.exists():
+        shutil.rmtree(snapshot_path)
+    shutil.copytree(source_workspace, snapshot_path)
+    return str(snapshot_path)
+
+
+def _salvage_continuous_job_transcript(job: Dict[str, Any]) -> bool:
+    result = job.get("result", {})
+    if result.get("transcript"):
+        return False
+
+    agent_id = str(job.get("agent_id") or "")
+    final_session_id = str(job.get("final_session_id") or "")
+    if not agent_id:
+        return False
+
+    reloaded = _load_transcript(agent_id, final_session_id, time.time(), log_success=False)
+    if not reloaded:
+        return False
+
+    span = job.get("transcript_span", {}) if isinstance(job.get("transcript_span"), dict) else {}
+    start = max(0, int(span.get("start", 0) or 0))
+    end = len(reloaded)
+    sliced = reloaded[start:end]
+
+    result["transcript"] = sliced
+    result["usage"] = _extract_usage_from_transcript(sliced)
+    result["llm_calls"] = _extract_llm_calls_from_transcript(sliced)
+    result["llm_models"] = sorted(
+        {str(call.get("model")) for call in result["llm_calls"] if call.get("model")}
+    )
+    span["end"] = end
+    span["length"] = max(0, end - start)
+    job["transcript_span"] = span
+    job["result"] = result
+    logger.info(
+        "Salvaged continual transcript for %s after unlock wait: %s entries",
+        job.get("task_id", "unknown"),
+        len(sliced),
+    )
+    return True
+
+
 def _transcript_debug_dump(transcript: List[Dict[str, Any]]) -> str:
     return json.dumps(_make_json_safe(transcript), ensure_ascii=False, indent=2)
 
@@ -986,7 +1045,7 @@ def _run_task_job(
             verbose=verbose,
             cleanup_sessions=(session_mode != "continuous"),
             defer_transcript_load=bool(
-                defer_continuous_grading and session_mode == "continuous"
+                (defer_continuous_grading and not generate_only) and session_mode == "continuous"
             ),
             initial_session_id=initial_session_id,
         )
@@ -1023,6 +1082,13 @@ def _run_task_job(
             {str(call.get("model")) for call in result["llm_calls"] if call.get("model")}
         )
     if generate_only:
+        if session_mode == "continuous":
+            result["workspace"] = _snapshot_workspace_for_task(
+                run_id=run_id,
+                job_index=job_index,
+                task_id=task.task_id,
+                workspace_path=result.get("workspace", ""),
+            )
         grade = GradeResult(
             task_id=task.task_id,
             score=0.0,
@@ -1037,17 +1103,12 @@ def _run_task_job(
             "guard_triggered": False,
         }
     elif defer_continuous_grading and session_mode == "continuous":
-        workspace_path = result.get("workspace", "")
-        if workspace_path:
-            source_workspace = Path(workspace_path)
-            if source_workspace.exists():
-                snapshot_root = Path(f"/tmp/pinchbench/{run_id}/workspace_snapshots")
-                snapshot_root.mkdir(parents=True, exist_ok=True)
-                snapshot_path = snapshot_root / f"job_{job_index:04d}_{task.task_id}"
-                if snapshot_path.exists():
-                    shutil.rmtree(snapshot_path)
-                shutil.copytree(source_workspace, snapshot_path)
-                result["workspace"] = str(snapshot_path)
+        result["workspace"] = _snapshot_workspace_for_task(
+            run_id=run_id,
+            job_index=job_index,
+            task_id=task.task_id,
+            workspace_path=result.get("workspace", ""),
+        )
         grade = GradeResult(
             task_id=task.task_id,
             score=0.0,
@@ -1558,6 +1619,7 @@ def main():
                 completed_jobs.append(completed_job)
             if agent_id_override and session_mode == "continuous":
                 unlocked = _wait_for_continuous_session_unlock(agent_id_override)
+                _salvage_continuous_job_transcript(completed_job)
                 if not unlocked:
                     logger.warning(
                         "Proceeding without a clean continual unlock for agent %s; prior session locks may still be draining or stale.",
