@@ -10,7 +10,8 @@ normalize_openclaw_runtime_env() {
   export HOME="${openclaw_home}"
   export XDG_CACHE_HOME="${HOME}/.cache"
   export XDG_CONFIG_HOME="${HOME}/.config"
-  mkdir -p "${XDG_CACHE_HOME}" "${XDG_CACHE_HOME}/fontconfig" "${XDG_CONFIG_HOME}"
+  export PATH="${HOME}/.local/bin:${PATH}"
+  mkdir -p "${XDG_CACHE_HOME}" "${XDG_CACHE_HOME}/fontconfig" "${XDG_CONFIG_HOME}" "${HOME}/.local/bin"
 }
 
 normalize_openclaw_runtime_env
@@ -510,6 +511,35 @@ SANITIZE_PY
 validate_openclaw_runtime_config() {
   local config_path="${OPENCLAW_CONFIG_PATH:-${HOME}/.openclaw/openclaw.json}"
   OPENCLAW_CONFIG_PATH="${config_path}" openclaw config validate >/dev/null
+}
+
+assert_method_runtime_config() {
+  local config_path="${OPENCLAW_CONFIG_PATH:-${HOME}/.openclaw/openclaw.json}"
+  python3 - "${config_path}" <<'ASSERT_METHOD_CFG_PY'
+import json
+import sys
+from pathlib import Path
+
+config_path = Path(sys.argv[1])
+obj = json.loads(config_path.read_text(encoding="utf-8"))
+plugins = obj.get("plugins", {})
+entries = plugins.get("entries", {})
+tokenpilot = entries.get("tokenpilot", {})
+slot = plugins.get("slots", {}).get("contextEngine")
+enabled = tokenpilot.get("enabled")
+
+errors = []
+if enabled is not True:
+    errors.append(f"plugins.entries.tokenpilot.enabled={enabled!r} (expected true)")
+if slot != "layered-context":
+    errors.append(f"plugins.slots.contextEngine={slot!r} (expected 'layered-context')")
+
+if errors:
+    print("Method runtime config is not active:", file=sys.stderr)
+    for item in errors:
+        print(f"- {item}", file=sys.stderr)
+    raise SystemExit(1)
+ASSERT_METHOD_CFG_PY
 }
 
 resolve_dataset_dir() {

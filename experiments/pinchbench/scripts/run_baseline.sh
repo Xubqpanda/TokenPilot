@@ -43,6 +43,7 @@ apply_model_runtime_env "${MODEL_LIKE}"
 require_method_runtime_env
 apply_runtime_env
 recover_stale_openclaw_config_backup
+BASELINE_RUNTIME_CONFIG_MUTATED=0
 
 if [[ -z "${PINCHBENCH_DATASET_DIR:-}" && -d "${PINCHBENCH_ROOT}/dataset" ]]; then
   export PINCHBENCH_DATASET_DIR="${PINCHBENCH_ROOT}/dataset"
@@ -136,11 +137,6 @@ config_path.write_text(json.dumps(obj, indent=2) + "\n", encoding="utf-8")
 BASELINE_PY
 }
 
-backup_openclaw_config
-configure_baseline_runtime "${RESOLVED_MODEL}" "${RESOLVED_JUDGE}"
-validate_openclaw_runtime_config
-ECOCLAW_FORCE_GATEWAY_RESTART="${TOKENPILOT_FORCE_GATEWAY_RESTART:-${ECOCLAW_FORCE_GATEWAY_RESTART:-true}}" ensure_openclaw_gateway_running
-
 OUTPUT_DIR="${OUTPUT_DIR_OVERRIDE:-${PINCHBENCH_ROOT}/save/${RESOLVED_SESSION_MODE}/baseline/raw}"
 LOG_DIR="${PINCHBENCH_ROOT}/save/logs"
 REPORT_DIR="${PINCHBENCH_ROOT}/save/reports"
@@ -151,10 +147,20 @@ RUN_START_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 mkdir -p "${OUTPUT_DIR}" "${LOG_DIR}" "${REPORT_DIR}"
 
 restore_baseline_runtime() {
-  restore_openclaw_config || true
-  ECOCLAW_FORCE_GATEWAY_RESTART="${TOKENPILOT_FORCE_GATEWAY_RESTART:-${ECOCLAW_FORCE_GATEWAY_RESTART:-true}}" ensure_openclaw_gateway_running >/dev/null 2>&1 || true
+  if [[ "${BASELINE_RUNTIME_CONFIG_MUTATED}" == "1" ]]; then
+    restore_openclaw_config || true
+    ECOCLAW_FORCE_GATEWAY_RESTART="${TOKENPILOT_FORCE_GATEWAY_RESTART:-${ECOCLAW_FORCE_GATEWAY_RESTART:-false}}" ensure_openclaw_gateway_running >/dev/null 2>&1 || true
+  fi
 }
-trap restore_baseline_runtime EXIT
+trap 'restore_baseline_runtime' EXIT INT TERM
+
+if [[ "${PHASE}" != "eval" ]]; then
+  backup_openclaw_config
+  BASELINE_RUNTIME_CONFIG_MUTATED=1
+  configure_baseline_runtime "${RESOLVED_MODEL}" "${RESOLVED_JUDGE}"
+  validate_openclaw_runtime_config
+  ECOCLAW_FORCE_GATEWAY_RESTART="${TOKENPILOT_FORCE_GATEWAY_RESTART:-${ECOCLAW_FORCE_GATEWAY_RESTART:-false}}" ensure_openclaw_gateway_running
+fi
 
 BENCH_ARGS=(
   --model "${RESOLVED_MODEL}"

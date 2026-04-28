@@ -43,14 +43,16 @@ apply_model_runtime_env "${MODEL_LIKE}"
 require_method_runtime_env
 apply_runtime_env
 if [[ "${PHASE}" != "eval" ]]; then
-  export ECOCLAW_FORCE_GATEWAY_RESTART="${TOKENPILOT_FORCE_GATEWAY_RESTART:-${ECOCLAW_FORCE_GATEWAY_RESTART:-true}}"
+  export ECOCLAW_FORCE_GATEWAY_RESTART="${TOKENPILOT_FORCE_GATEWAY_RESTART:-${ECOCLAW_FORCE_GATEWAY_RESTART:-false}}"
   recover_stale_openclaw_config_backup
   ensure_plugin_runtime_config
   sanitize_plugin_runtime_config
   validate_openclaw_runtime_config
+  assert_method_runtime_config
   ensure_openclaw_gateway_running
   sanitize_plugin_runtime_config
   validate_openclaw_runtime_config
+  assert_method_runtime_config
 fi
 
 if [[ -z "${PINCHBENCH_DATASET_DIR:-}" && -d "${PINCHBENCH_ROOT}/dataset" ]]; then
