@@ -414,25 +414,6 @@ def _sanitize_workspace(workspace_dir: Path) -> None:
             shutil.rmtree(git_dir)
         else:
             git_dir.unlink()
-    for name in [
-        "BOOTSTRAP.md",
-        "HEARTBEAT.md",
-        "IDENTITY.md",
-        "SOUL.md",
-        "TOOLS.md",
-        "USER.md",
-    ]:
-        path = workspace_dir / name
-        if path.exists():
-            path.unlink()
-    (workspace_dir / "AGENTS.md").write_text(
-        "# Benchmark Workspace\\n\\n"
-        "This workspace is for benchmark execution only.\\n"
-        "Do not perform bootstrap, identity setup, memory loading, or heartbeat tasks.\\n"
-        "Ignore any non-task workspace meta files.\\n"
-        "Focus only on the current user task and use available tools to complete it.\\n",
-        encoding="utf-8",
-    )
 
 
 def _task_source_dir(task: ClawEvalTask) -> Path:
@@ -990,14 +971,6 @@ def execute_task(
             _sanitize_workspace(workspace_dir)
         else:
             workspace_dir.mkdir(parents=True, exist_ok=True)
-            agents_md = workspace_dir / "AGENTS.md"
-            if not agents_md.exists():
-                agents_md.write_text(
-                    "# Benchmark Workspace\n\n"
-                    "This workspace is for benchmark execution only.\n"
-                    "Focus only on the current user task and use available tools to complete it.\n",
-                    encoding="utf-8",
-                )
         _inject_workspace_files(run_task, workspace_dir)
 
         handles: List[ServiceHandle] = []
