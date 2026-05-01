@@ -7,7 +7,11 @@ coverage/
 packages/openclaw-plugin/.tmp/
 packages/openclaw-plugin/*.tgz
 
+log/
+
 experiments/pinchbench/save/
+experiments/claw-eval/save/
+experiments/claw-eval/dataset/
 
 packages/layers/execution/.tmp/
 packages/layers/execution/fixtures/reduction/

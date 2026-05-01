@@ -6,12 +6,16 @@ PINCHBENCH_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 normalize_openclaw_runtime_env() {
-  local openclaw_home="${TOKENPILOT_OPENCLAW_HOME:-${ECOCLAW_OPENCLAW_HOME:-/mnt/20t/xubuqiang}}"
+  local openclaw_home="${TOKENPILOT_OPENCLAW_HOME:-${ECOCLAW_OPENCLAW_HOME:-${HOME}}}"
+  local runtime_local_bin="${openclaw_home}/.local/bin"
   export HOME="${openclaw_home}"
   export XDG_CACHE_HOME="${HOME}/.cache"
   export XDG_CONFIG_HOME="${HOME}/.config"
-  export PATH="${HOME}/.local/bin:${PATH}"
-  mkdir -p "${XDG_CACHE_HOME}" "${XDG_CACHE_HOME}/fontconfig" "${XDG_CONFIG_HOME}" "${HOME}/.local/bin"
+  case ":${PATH}:" in
+    *":${runtime_local_bin}:"*) ;;
+    *) export PATH="${runtime_local_bin}:${PATH}" ;;
+  esac
+  mkdir -p "${XDG_CACHE_HOME}" "${XDG_CACHE_HOME}/fontconfig" "${XDG_CONFIG_HOME}" "${runtime_local_bin}"
 }
 
 normalize_openclaw_runtime_env

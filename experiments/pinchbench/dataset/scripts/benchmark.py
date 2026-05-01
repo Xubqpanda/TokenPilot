@@ -224,6 +224,14 @@ def _transcript_debug_dump(transcript: List[Dict[str, Any]]) -> str:
     return json.dumps(_make_json_safe(transcript), ensure_ascii=False, indent=2)
 
 
+def _format_progress_bar(current: int, total: int, width: int = 24) -> str:
+    if total <= 0:
+        return "[{}]".format("-" * width)
+    ratio = max(0.0, min(1.0, current / total))
+    filled = int(ratio * width)
+    return "[{}{}]".format("#" * filled, "-" * (width - filled))
+
+
 def _log_eval_snapshot(
     *,
     phase: str,
@@ -1058,11 +1066,15 @@ def _run_task_job(
     generate_only: bool = False,
     manage_fws: bool = True,
 ) -> Dict[str, Any]:
+    progress_bar = _format_progress_bar(task_index, total_tasks)
+    progress_pct = (task_index / total_tasks * 100.0) if total_tasks else 0.0
     logger.info("\n%s", "=" * 80)
     logger.info(
-        "📋 Task %s/%s (Run %s/%s) [job %s]%s",
+        "📋 Task %s/%s %s %5.1f%% (Run %s/%s) [job %s]%s",
         task_index,
         total_tasks,
+        progress_bar,
+        progress_pct,
         run_index + 1,
         runs_per_task,
         job_index,

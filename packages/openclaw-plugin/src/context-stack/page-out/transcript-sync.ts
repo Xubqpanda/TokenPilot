@@ -565,12 +565,12 @@ export async function readTranscriptMessagesForSession(sessionId: string): Promi
   return entries.map((entry) => entry.message);
 }
 
-async function buildRawSemanticTurnRecordFromTranscript(
+function buildRawSemanticTurnRecordFromTranscript(
   sessionId: string,
+  messages: any[],
   turnSeq: number,
   helpers: TranscriptHelpers,
-): Promise<RawSemanticTurnRecord | null> {
-  const messages = await readTranscriptMessagesForSession(sessionId);
+): RawSemanticTurnRecord | null {
   if (!messages || messages.length === 0) return null;
   const scopedMessages = sliceMessagesForTurnSeq(messages, turnSeq);
   if (scopedMessages.length === 0) return null;
@@ -597,7 +597,7 @@ export async function syncRawSemanticTurnsFromTranscript(
   }
   const updatedTurnSeqs: number[] = [];
   for (let turnSeq = 1; turnSeq <= turnCount; turnSeq += 1) {
-    const record = await buildRawSemanticTurnRecordFromTranscript(sessionId, turnSeq, helpers);
+    const record = buildRawSemanticTurnRecordFromTranscript(sessionId, messages, turnSeq, helpers);
     if (!record) continue;
     const existing = await loadRawSemanticTurnRecord(stateDir, sessionId, turnSeq);
     const nextMessages = dedupeRawSemanticMessages(record.messages);

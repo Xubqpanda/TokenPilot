@@ -1041,8 +1041,9 @@ def execute_openclaw_task(
     if cleanup_sessions:
         cleanup_agent_sessions(agent_id)
 
+    requires_fws = is_fws_task(task.frontmatter)
     fws_env: Dict[str, Optional[str]] | None = None
-    if manage_fws and is_fws_task(task.frontmatter):
+    if manage_fws and requires_fws:
         if not fws_available():
             logger.warning(
                 "Task %s requires fws-backed services, but fws is not available.",
@@ -1066,7 +1067,9 @@ def execute_openclaw_task(
         stderr = ""
         exit_code = -1
         timed_out = False
-        use_local = OPENCLAW_AGENT_LOCAL or (fws_env is not None)
+        # FWS-backed tasks must run with --local so the agent inherits the mock
+        # service environment, including when fws was started at run scope.
+        use_local = OPENCLAW_AGENT_LOCAL or requires_fws or (fws_env is not None)
 
         session_plan = _build_task_session_plan(task)
 
