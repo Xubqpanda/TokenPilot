@@ -375,11 +375,85 @@ def collect_task_audit(task: ClawEvalTask) -> Dict[str, Dict[str, Any]]:
     return audit
 
 
+def _get_agent_workspace(agent_id: str, env: Dict[str, str]) -> Path | None:
+    try:
+        list_result = subprocess.run(
+            ["openclaw", "agents", "list"],
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+        )
+        if list_result.returncode != 0:
+            return None
+        normalized_id = agent_id.replace(":", "-")
+        lines = list_result.stdout.split("\n")
+        found_agent = False
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith(f"- {agent_id}") or stripped.startswith(f"- {normalized_id}"):
+                found_agent = True
+            elif found_agent and "Workspace:" in line:
+                workspace_str = line.split("Workspace:")[1].strip()
+                if workspace_str.startswith("~/"):
+                    workspace_str = str(Path.home() / workspace_str[2:])
+                return Path(workspace_str)
+            elif found_agent and line.strip().startswith("-"):
+                break
+        return None
+    except Exception:
+        return None
+
+
+def _list_existing_agents(env: Dict[str, str]) -> set[str]:
+    try:
+        list_result = subprocess.run(
+            ["openclaw", "agents", "list"],
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+        )
+    except Exception:
+        return set()
+    if list_result.returncode != 0:
+        return set()
+    existing_agents: set[str] = set()
+    for line in list_result.stdout.splitlines():
+        line = line.strip()
+        if line.startswith("- "):
+            name_part = line[2:].split()[0] if line[2:].strip() else ""
+            if name_part:
+                existing_agents.add(name_part)
+    return existing_agents
+
+
 def ensure_agent_exists(agent_id: str, model_id: str, workspace_dir: Path, config_path: Path, task: ClawEvalTask) -> None:
     workspace_dir.mkdir(parents=True, exist_ok=True)
     env = _inject_mock_service_urls(_openclaw_env(config_path), task)
     last_error = ""
     for _ in range(3):
+        existing_agents = _list_existing_agents(env)
+        normalized_id = agent_id.replace(":", "-")
+        if agent_id in existing_agents or normalized_id in existing_agents:
+            current_workspace = _get_agent_workspace(agent_id, env)
+            if current_workspace is not None and current_workspace.resolve() == workspace_dir.resolve():
+                _patch_agent_tool_restrictions(agent_id, task, config_path)
+                return
+            delete_name = normalized_id if normalized_id in existing_agents else agent_id
+            delete_result = subprocess.run(
+                ["openclaw", "agents", "remove", delete_name, "--yes"],
+                check=False,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            if delete_result.returncode != 0:
+                last_error = (delete_result.stderr or delete_result.stdout or "").strip()
+                time.sleep(0.5)
+                continue
+            time.sleep(0.5)
+
         result = subprocess.run(
             [
                 "openclaw",
@@ -397,11 +471,20 @@ def ensure_agent_exists(agent_id: str, model_id: str, workspace_dir: Path, confi
             text=True,
             env=env,
         )
-        cfg = _read_json_with_retry(config_path)
-        if any(entry.get("id") == agent_id for entry in cfg.get("agents", {}).get("list", [])):
+        if result.returncode == 0:
             _patch_agent_tool_restrictions(agent_id, task, config_path)
             return
-        last_error = (result.stderr or result.stdout or "").strip()
+        add_error = (result.stderr or result.stdout or "").strip()
+        if "already exists" in add_error.lower():
+            current_workspace = _get_agent_workspace(agent_id, env)
+            if current_workspace is not None and current_workspace.resolve() == workspace_dir.resolve():
+                _patch_agent_tool_restrictions(agent_id, task, config_path)
+                return
+        existing_agents = _list_existing_agents(env)
+        if agent_id in existing_agents or normalized_id in existing_agents:
+            _patch_agent_tool_restrictions(agent_id, task, config_path)
+            return
+        last_error = add_error
         time.sleep(0.5)
     raise RuntimeError(f"Failed to create agent {agent_id}: {last_error or 'unknown error'}")
 
@@ -954,6 +1037,7 @@ def execute_task(
     workspace_dir_override: Path | None = None,
     session_id_override: str | None = None,
     preserve_workspace: bool = False,
+    ensure_agent: bool = True,
 ) -> Dict[str, Any]:
     task_root = run_root / task.task_id
     workspace_dir = workspace_dir_override or (task_root / "workspace")
@@ -966,7 +1050,8 @@ def execute_task(
         service_offset = (int(time.time() * 1000) % 1000) + (attempt * 1000)
         run_task = _task_with_available_service_ports(_task_with_service_port_offset(task, service_offset))
         agent_id = agent_id_override or _make_agent_id(model_id, task.task_id)
-        ensure_agent_exists(agent_id, model_id, workspace_dir, config_path, run_task)
+        if ensure_agent:
+            ensure_agent_exists(agent_id, model_id, workspace_dir, config_path, run_task)
         if not preserve_workspace:
             _sanitize_workspace(workspace_dir)
         else:

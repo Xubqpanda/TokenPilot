@@ -19,7 +19,7 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
-from lib_agent import execute_task
+from lib_agent import ensure_agent_exists, execute_task
 from lib_grading import grade_execution_result
 from lib_services import (
     activate_plugins_for_run,
@@ -367,9 +367,17 @@ def main() -> None:
                 shared_session_id = None
                 if args.session_mode == "continuous":
                     model_slug = execution_model.replace("/", "-").replace(":", "-")
-                    shared_agent_id = f"ce-{model_slug}-serial"
+                    shared_agent_id = f"ce-{model_slug}-{run_id}-serial"
                     shared_workspace = run_root / "_continuous" / "workspace"
                     shared_session_id = f"ce-continuous-{int(datetime.now(timezone.utc).timestamp() * 1000)}"
+                    if selected_tasks:
+                        ensure_agent_exists(
+                            shared_agent_id,
+                            execution_model,
+                            shared_workspace,
+                            config_path,
+                            selected_tasks[0],
+                        )
                 for task in selected_tasks:
                     print(f"[task] {task.task_id} ({task.category})")
                     result = execute_task(
@@ -384,6 +392,7 @@ def main() -> None:
                         workspace_dir_override=shared_workspace,
                         session_id_override=shared_session_id,
                         preserve_workspace=(args.session_mode == "continuous"),
+                        ensure_agent=not (args.session_mode == "continuous"),
                     )
                     grade = grade_execution_result(
                         task_yaml_path=task.task_yaml_path,
