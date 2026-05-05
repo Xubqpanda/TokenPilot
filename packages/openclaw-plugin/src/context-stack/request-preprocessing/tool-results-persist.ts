@@ -5,6 +5,7 @@ import {
 type PersistHelpers = {
   appendTaskStateTrace: (stateDir: string, payload: Record<string, unknown>) => Promise<void>;
   ensureContextSafeDetails: (details: unknown, patch: Record<string, unknown>) => Record<string, unknown>;
+  extractOpenClawSessionId: (event: any) => string;
   extractToolMessageText: (message: Record<string, unknown>) => string;
   isToolResultLikeMessage: (message: Record<string, unknown>) => boolean;
   safeId: (value: string) => string;
@@ -22,11 +23,16 @@ export function applyToolResultPersistPolicy(
   if (!helpers.isToolResultLikeMessage(rawMessage)) return { message: rawMessage };
 
   const text = helpers.extractToolMessageText(rawMessage);
+  const resolvedSessionId =
+    helpers.extractOpenClawSessionId(event)
+    || String(event?.sessionId ?? event?.session_id ?? "").trim()
+    || "proxy-session";
   const outcome = planToolResultPersistence({
     event,
     text,
     stateDir: cfg.stateDir,
     safeId: helpers.safeId,
+    sessionId: resolvedSessionId,
   });
   if (outcome.resultMode === "inline") {
     return {
@@ -42,7 +48,7 @@ export function applyToolResultPersistPolicy(
   if (cfg.stateDir) {
     void helpers.appendTaskStateTrace(cfg.stateDir, {
       stage: "tool_result_persist_applied",
-      sessionId: String(event?.sessionId ?? event?.session_id ?? "proxy-session"),
+      sessionId: resolvedSessionId,
       toolName: outcome.toolName || "tool",
       toolCallId: String(event?.toolCallId ?? event?.tool_call_id ?? "").trim() || null,
       originalChars: outcome.originalChars,

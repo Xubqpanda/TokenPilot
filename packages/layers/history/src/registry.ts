@@ -6,6 +6,9 @@ import type {
   TaskState,
 } from "./types.js";
 
+const LEGACY_PLUGIN_STATE_DIRNAME = "ecoclaw-plugin-state";
+const NEXT_PLUGIN_STATE_DIRNAME = "tokenpilot-plugin-state";
+
 function dedupeOrdered(values: string[] | undefined): string[] | undefined {
   if (!values) return undefined;
   const out: string[] = [];
@@ -114,6 +117,25 @@ export function sessionTaskRegistryPath(stateDir: string, sessionId: string): st
   return join(stateDir, "task-state", safeSessionId(sessionId), "registry.json");
 }
 
+function sessionTaskRegistryPathCandidates(stateDir: string, sessionId: string): string[] {
+  const safeId = safeSessionId(sessionId);
+  const trimmed = stateDir.trim();
+  const out = [
+    join(trimmed, "task-state", safeId, "registry.json"),
+  ];
+  if (trimmed.includes(LEGACY_PLUGIN_STATE_DIRNAME)) {
+    out.push(join(trimmed.replace(LEGACY_PLUGIN_STATE_DIRNAME, NEXT_PLUGIN_STATE_DIRNAME), "task-state", safeId, "registry.json"));
+  }
+  if (trimmed.includes(NEXT_PLUGIN_STATE_DIRNAME)) {
+    out.push(join(trimmed.replace(NEXT_PLUGIN_STATE_DIRNAME, LEGACY_PLUGIN_STATE_DIRNAME), "task-state", safeId, "registry.json"));
+  }
+  return Array.from(new Set(out));
+}
+
+function sessionTaskRegistryWriteTargets(stateDir: string, sessionId: string): string[] {
+  return sessionTaskRegistryPathCandidates(stateDir, sessionId);
+}
+
 export function createEmptySessionTaskRegistry(sessionId: string): SessionTaskRegistry {
   return {
     sessionId,
@@ -193,17 +215,19 @@ export async function loadSessionTaskRegistry(
   stateDir: string,
   sessionId: string,
 ): Promise<SessionTaskRegistry> {
-  const path = sessionTaskRegistryPath(stateDir, sessionId);
-  try {
-    const raw = await readFile(path, "utf8");
-    return parseRegistryJson(raw);
-  } catch (error) {
-    const err = error as NodeJS.ErrnoException;
-    if (err.code === "ENOENT") {
-      return createEmptySessionTaskRegistry(sessionId);
+  for (const path of sessionTaskRegistryPathCandidates(stateDir, sessionId)) {
+    try {
+      const raw = await readFile(path, "utf8");
+      return parseRegistryJson(raw);
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException;
+      if (err.code === "ENOENT") {
+        continue;
+      }
+      throw error;
     }
-    throw error;
   }
+  return createEmptySessionTaskRegistry(sessionId);
 }
 
 export async function persistSessionTaskRegistry(
@@ -218,9 +242,11 @@ export async function persistSessionTaskRegistry(
       throw new SessionTaskRegistryVersionMismatchError(options.expectedVersion, current.version);
     }
   }
-  await mkdir(dirname(path), { recursive: true });
-  const tempPath = `${path}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(tempPath, `${JSON.stringify(registry, null, 2)}\n`, "utf8");
-  await rename(tempPath, path);
+  for (const targetPath of sessionTaskRegistryWriteTargets(stateDir, registry.sessionId)) {
+    await mkdir(dirname(targetPath), { recursive: true });
+    const tempPath = `${targetPath}.tmp-${process.pid}-${Date.now()}`;
+    await writeFile(tempPath, `${JSON.stringify(registry, null, 2)}\n`, "utf8");
+    await rename(tempPath, targetPath);
+  }
   return path;
 }

@@ -134,6 +134,29 @@ export async function registerRuntime(api: any, cfg: any, logger: any, deps: any
     }
   };
 
+  const readExplicitPayloadSessionId = (payload: any): string | undefined => {
+    const metadata = payload?.metadata && typeof payload.metadata === "object" ? payload.metadata : null;
+    const directCandidates = [
+      payload?.session_id,
+      payload?.sessionId,
+      payload?.openclawSessionId,
+      payload?.tokenpilotSessionId,
+      payload?.conversation_id,
+      payload?.conversationId,
+      metadata?.session_id,
+      metadata?.sessionId,
+      metadata?.openclawSessionId,
+      metadata?.tokenpilotSessionId,
+      metadata?.conversation_id,
+      metadata?.conversationId,
+    ];
+    for (const candidate of directCandidates) {
+      const value = String(candidate ?? "").trim();
+      if (value) return value;
+    }
+    return undefined;
+  };
+
   const resolveTurnBinding = (userMessage: string) => {
     const normalizedMessage = deps.normalizeTurnBindingMessage(String(userMessage ?? "").trim());
     if (!normalizedMessage) return null;
@@ -143,9 +166,8 @@ export async function registerRuntime(api: any, cfg: any, logger: any, deps: any
     const candidates = [...recentTurnBindings, ...persistedCandidates];
     for (let i = candidates.length - 1; i >= 0; i -= 1) {
       const candidate = candidates[i];
-      if (candidate.matchKey !== normalizedMessage) continue;
       if (Date.now() - candidate.at > 30 * 60 * 1000) continue;
-      return candidate;
+      if (candidate.matchKey === normalizedMessage) return candidate;
     }
     return null;
   };
@@ -157,10 +179,14 @@ export async function registerRuntime(api: any, cfg: any, logger: any, deps: any
   };
 
   const resolveSessionIdForPayload = (payload: any): string | undefined => {
+    const explicitSessionId = readExplicitPayloadSessionId(payload);
+    if (explicitSessionId) return explicitSessionId;
     const promptSessionId = resolveBoundUpstreamSessionId(String(payload?.prompt ?? ""));
     if (promptSessionId) return promptSessionId;
     const lastUser = deps.findLastUserItem(payload?.input);
-    return resolveBoundUpstreamSessionId(deps.extractItemText(lastUser?.userItem));
+    const userBoundSessionId = resolveBoundUpstreamSessionId(deps.extractItemText(lastUser?.userItem));
+    if (userBoundSessionId) return userBoundSessionId;
+    return topology.getLatestUpstreamSessionId() ?? undefined;
   };
 
   let proxyRuntime: Awaited<ReturnType<typeof startEmbeddedResponsesProxy>> | null = null;

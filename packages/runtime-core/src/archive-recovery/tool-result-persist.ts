@@ -108,6 +108,7 @@ export function planToolResultPersistence(params: {
   text: string;
   stateDir: string;
   safeId: (value: string) => string;
+  sessionId?: string;
 }): ToolResultPersistOutcome {
   const toolName = resolveToolNameFromPersistEvent(params.event);
   const limit = toolInlineLimit(toolName);
@@ -128,8 +129,9 @@ export function planToolResultPersistence(params: {
 
   let outputFile: string | undefined;
   try {
+    const sessionId = String(params.sessionId ?? params.event?.sessionId ?? params.event?.session_id ?? "proxy-session").trim() || "proxy-session";
     const archived = archiveContentSync({
-      sessionId: "proxy-session",
+      sessionId,
       segmentId: callId || `${toolPart}-${digest}`,
       sourcePass: "tool_result_persist",
       toolName: toolName || "tool",

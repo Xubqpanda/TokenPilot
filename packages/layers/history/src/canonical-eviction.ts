@@ -371,7 +371,12 @@ export async function applyCanonicalEviction(params: {
             archivePath: archived.archivePath,
             sourceLabel: params.archiveSourceLabel,
           });
-        stubByIndex.set(bundle.firstIndex, {
+        const representativeStopReason =
+          typeof representative.stopReason === "string" && representative.stopReason.trim().length > 0
+            ? representative.stopReason
+            : "stop";
+        const representativeMessage = {
+          ...representative,
           role: "assistant",
           content: [{ type: "text", text: stub }],
           details: params.helpers.ensureContextSafeDetails(representative.details, {
@@ -388,6 +393,10 @@ export async function applyCanonicalEviction(params: {
             },
             originalChars: originalSize,
           }),
+        };
+        stubByIndex.set(bundle.firstIndex, {
+          ...representativeMessage,
+          stopReason: representativeStopReason,
         });
         for (const idx of bundle.messageIndexes) {
           if (idx === bundle.firstIndex) continue;

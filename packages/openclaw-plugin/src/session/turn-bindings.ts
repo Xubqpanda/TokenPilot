@@ -1,6 +1,14 @@
-import { dirname } from "node:path";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { pluginStateSubdir, pluginStateSubdirCandidates, pluginStateSubdirWriteTargets } from "@tokenpilot/runtime-core";
+import {
+  defaultPluginStateDir,
+  LEGACY_PLUGIN_STATE_DIRNAME,
+  NEXT_PLUGIN_STATE_DIRNAME,
+  pluginStateSubdir,
+  pluginStateSubdirCandidates,
+  pluginStateSubdirWriteTargets,
+} from "@tokenpilot/runtime-core";
 
 export type RecentTurnBinding = {
   userMessage: string;
@@ -16,6 +24,15 @@ function recentTurnBindingsPath(stateDir: string): string {
 
 function recentTurnBindingsPathCandidates(stateDir: string): string[] {
   return pluginStateSubdirCandidates(stateDir, "controls", "recent-turn-bindings.json");
+}
+
+function explicitHomeStateDirs(): string[] {
+  const home = homedir().trim();
+  if (!home) return [];
+  return [
+    join(home, ".openclaw", NEXT_PLUGIN_STATE_DIRNAME),
+    join(home, ".openclaw", LEGACY_PLUGIN_STATE_DIRNAME),
+  ];
 }
 
 export function loadRecentTurnBindingsFromState(
@@ -49,10 +66,52 @@ export function loadRecentTurnBindingsFromState(
 
 export function persistRecentTurnBindingsToState(stateDir: string, bindings: RecentTurnBinding[]): void {
   try {
-    const payload = JSON.stringify(bindings.slice(-128), null, 2);
+    const merged = new Map<string, RecentTurnBinding>();
+    for (const entry of loadRecentTurnBindingsFromState(stateDir, (text) => text)) {
+      const key = `${entry.at}:${entry.sessionKey}:${entry.upstreamSessionId ?? ""}:${entry.matchKey}`;
+      merged.set(key, entry);
+    }
+    const defaultStateDir = defaultPluginStateDir();
+    if (defaultStateDir && defaultStateDir !== stateDir) {
+      for (const entry of loadRecentTurnBindingsFromState(defaultStateDir, (text) => text)) {
+        const key = `${entry.at}:${entry.sessionKey}:${entry.upstreamSessionId ?? ""}:${entry.matchKey}`;
+        merged.set(key, entry);
+      }
+    }
+    for (const homeStateDir of explicitHomeStateDirs()) {
+      if (homeStateDir === stateDir || homeStateDir === defaultStateDir) continue;
+      for (const entry of loadRecentTurnBindingsFromState(homeStateDir, (text) => text)) {
+        const key = `${entry.at}:${entry.sessionKey}:${entry.upstreamSessionId ?? ""}:${entry.matchKey}`;
+        merged.set(key, entry);
+      }
+    }
+    for (const entry of bindings) {
+      const key = `${entry.at}:${entry.sessionKey}:${entry.upstreamSessionId ?? ""}:${entry.matchKey}`;
+      merged.set(key, entry);
+    }
+    const payload = JSON.stringify(
+      [...merged.values()]
+        .sort((a, b) => a.at - b.at)
+        .slice(-128),
+      null,
+      2,
+    );
     for (const path of pluginStateSubdirWriteTargets(stateDir, "controls", "recent-turn-bindings.json")) {
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(path, payload, "utf8");
+    }
+    if (defaultStateDir && defaultStateDir !== stateDir) {
+      for (const path of pluginStateSubdirWriteTargets(defaultStateDir, "controls", "recent-turn-bindings.json")) {
+        mkdirSync(dirname(path), { recursive: true });
+        writeFileSync(path, payload, "utf8");
+      }
+    }
+    for (const homeStateDir of explicitHomeStateDirs()) {
+      if (homeStateDir === stateDir || homeStateDir === defaultStateDir) continue;
+      for (const path of pluginStateSubdirWriteTargets(homeStateDir, "controls", "recent-turn-bindings.json")) {
+        mkdirSync(dirname(path), { recursive: true });
+        writeFileSync(path, payload, "utf8");
+      }
     }
   } catch {
     // Best-effort only: provider-side lookup can still rely on in-memory bindings if persistence fails.

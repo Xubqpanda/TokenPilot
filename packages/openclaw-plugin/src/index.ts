@@ -164,6 +164,7 @@ module.exports = {
         const out = applyToolResultPersistPolicy(event, cfg, logger, {
           appendTaskStateTrace,
           ensureContextSafeDetails,
+          extractOpenClawSessionId,
           extractToolMessageText,
           isToolResultLikeMessage,
           safeId,

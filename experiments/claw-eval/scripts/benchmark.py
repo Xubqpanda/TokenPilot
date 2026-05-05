@@ -177,7 +177,7 @@ def _apply_tokenpilot_runtime_settings(config_path: Path, *, execution_model: st
     passes = reduction.setdefault("passes", {})
     for env_name, field, fallback in (
         ("TOKENPILOT_REDUCTION_PASS_REPEATED_READ_DEDUP", "repeatedReadDedup", True),
-        ("TOKENPILOT_REDUCTION_PASS_TOOL_PAYLOAD_TRIM", "toolPayloadTrim", False),
+        ("TOKENPILOT_REDUCTION_PASS_TOOL_PAYLOAD_TRIM", "toolPayloadTrim", True),
         ("TOKENPILOT_REDUCTION_PASS_HTML_SLIMMING", "htmlSlimming", True),
         ("TOKENPILOT_REDUCTION_PASS_EXEC_OUTPUT_TRUNCATION", "execOutputTruncation", True),
         ("TOKENPILOT_REDUCTION_PASS_AGENTS_STARTUP_OPTIMIZATION", "agentsStartupOptimization", True),
@@ -193,7 +193,7 @@ def _apply_tokenpilot_runtime_settings(config_path: Path, *, execution_model: st
     )
     eviction["replacementMode"] = os.environ.get(
         "TOKENPILOT_EVICTION_REPLACEMENT_MODE",
-        str(eviction.get("replacementMode", "pointer_stub")),
+        str(eviction.get("replacementMode", "drop")),
     )
 
     estimator = tokenpilot_cfg.setdefault("taskStateEstimator", {})

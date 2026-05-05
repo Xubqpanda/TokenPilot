@@ -208,6 +208,7 @@ export async function applyLayeredReductionAfterCall(
   parsedResponse: any,
   maxToolChars: number,
   triggerMinChars: number,
+  sessionId: string,
   passToggles: AfterCallPassToggles | undefined,
   passOptions: Record<string, Record<string, unknown>> | undefined,
   helpers: AfterCallHelpers,
@@ -220,7 +221,7 @@ export async function applyLayeredReductionAfterCall(
   const { turnCtx } = helpers.buildLayeredReductionContext(
     requestPayload,
     triggerMinChars,
-    "proxy-session",
+    sessionId,
     passToggles,
     passOptions,
   );
@@ -275,6 +276,7 @@ export async function applyLayeredReductionAfterCallToSse(
   rawSse: string,
   maxToolChars: number,
   triggerMinChars: number,
+  sessionId: string,
   passToggles: AfterCallPassToggles | undefined,
   passOptions: Record<string, Record<string, unknown>> | undefined,
   helpers: AfterCallHelpers,
@@ -313,6 +315,7 @@ export async function applyLayeredReductionAfterCallToSse(
     completedResponse,
     maxToolChars,
     triggerMinChars,
+    sessionId,
     passToggles,
     passOptions,
     helpers,
