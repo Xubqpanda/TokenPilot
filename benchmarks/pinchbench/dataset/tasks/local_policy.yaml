@@ -1,0 +1,21 @@
+# Local execution policy for the upstream PinchBench dataset mirrored into TokenPilot.
+#
+# Goal:
+# - Keep the upstream manifest as the canonical task universe.
+# - Define a smaller local support surface for staged rollout.
+# - Let benchmark.py default to the local support surface instead of blindly
+#   running every upstream task.
+#
+# Semantics:
+# - suite=all               -> all tasks after applying default excludes below
+# - suite=all-upstream      -> all manifest tasks, bypassing local excludes
+# - suite=automated-only    -> automated tasks after applying default excludes
+# - suite=<csv task ids>    -> explicit task ids, no default excludes applied
+#
+# Default excludes are currently empty.
+# Service-backed GWS/GitHub tasks and image identification have now been
+# validated in the local harness and are included in suite=all by default.
+
+default_exclude_task_ids: []
+
+default_exclude_prefixes: []
