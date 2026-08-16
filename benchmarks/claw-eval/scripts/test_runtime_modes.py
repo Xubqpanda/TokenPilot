@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -71,5 +72,55 @@ os.environ['TOKENPILOT_RUNTIME_ENABLED'] = 'false'
 assert _should_enable_tokenpilot_runtime('tokenpilot/gpt-5.4-mini') is False
 os.environ['TOKENPILOT_RUNTIME_ENABLED'] = 'true'
 assert _should_enable_tokenpilot_runtime('gpt-5.4-mini') is True
-""",
+        """,
     )
+
+
+def test_method_runtime_replaces_stale_tokenpilot_load_paths(tmp_path: Path) -> None:
+    config_path = tmp_path / "openclaw.json"
+    plugin_load_path = tmp_path / "extensions" / "tokenpilot"
+    config_path.write_text(
+        json.dumps(
+            {
+                "plugins": {
+                    "enabled": True,
+                    "load": {
+                        "paths": [
+                            "/home/old/.openclaw/extensions/tokenpilot",
+                            "/tmp/other-plugin",
+                        ]
+                    },
+                    "entries": {},
+                }
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env.update(
+        {
+            "TOKENPILOT_OPENCLAW_HOME": str(tmp_path),
+            "OPENCLAW_CONFIG_PATH": str(config_path),
+            "TOKENPILOT_PLUGIN_LOAD_PATH": str(plugin_load_path),
+            "TOKENPILOT_BASE_URL": "https://example.invalid/v1",
+            "TOKENPILOT_API_KEY": "fixture-key",
+            "TOKENPILOT_TASK_STATE_ESTIMATOR_ENABLED": "false",
+            "TOKENPILOT_MEMORY_ENABLED": "false",
+        }
+    )
+    subprocess.run(
+        [
+            "bash",
+            "-c",
+            "source benchmarks/pinchbench/scripts/common.sh >/dev/null; "
+            "ensure_plugin_runtime_config >/dev/null",
+        ],
+        check=True,
+        env=env,
+    )
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    assert config["plugins"]["load"]["paths"] == [
+        "/tmp/other-plugin",
+        str(plugin_load_path),
+    ]

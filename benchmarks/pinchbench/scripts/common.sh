@@ -428,7 +428,9 @@ if isinstance(existing_paths, list):
     preserved_paths = [
         str(path)
         for path in existing_paths
-        if isinstance(path, str) and path not in ("",)
+        if isinstance(path, str)
+        and path not in ("",)
+        and "/extensions/tokenpilot" not in path.lower()
     ]
 legacy_roots = {
   }
