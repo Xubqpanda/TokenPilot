@@ -123,6 +123,33 @@ def _should_enable_tokenpilot_runtime(execution_model: str) -> bool:
 def _clear_tokenpilot_runtime_settings(config_path: Path) -> dict[str, object]:
     raw = json.loads(config_path.read_text(encoding="utf-8"))
     plugins = raw.setdefault("plugins", {})
+    entries = plugins.get("entries")
+    if isinstance(entries, dict):
+        entries.pop("tokenpilot", None)
+        if not entries:
+            plugins.pop("entries", None)
+    installs = plugins.get("installs")
+    if isinstance(installs, dict):
+        installs.pop("tokenpilot", None)
+        if not installs:
+            plugins.pop("installs", None)
+    allow = plugins.get("allow")
+    if isinstance(allow, list):
+        plugins["allow"] = [plugin_id for plugin_id in allow if plugin_id != "tokenpilot"]
+        if not plugins["allow"]:
+            plugins.pop("allow", None)
+    load = plugins.get("load")
+    if isinstance(load, dict):
+        paths = load.get("paths")
+        if isinstance(paths, list):
+            paths = [
+                path for path in paths
+                if not (isinstance(path, str) and "/extensions/tokenpilot" in path.lower())
+            ]
+            if paths:
+                load["paths"] = paths
+            else:
+                plugins.pop("load", None)
     slots = plugins.setdefault("slots", {})
     if slots.get("contextEngine") == "layered-context":
         slots["contextEngine"] = "legacy"

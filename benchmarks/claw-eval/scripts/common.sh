@@ -415,16 +415,26 @@ ce_run_benchmark() {
     cmd+=("$@")
   fi
 
-  ensure_plugin_runtime_config
-  sanitize_plugin_runtime_config
-  ensure_pinchbench_exec_approvals
-  validate_openclaw_runtime_config
-  assert_method_runtime_config
-  ensure_openclaw_gateway_running
-  sanitize_plugin_runtime_config
-  ensure_pinchbench_exec_approvals
-  validate_openclaw_runtime_config
-  assert_method_runtime_config
+  if [[ "${TOKENPILOT_RUNTIME_ENABLED:-true}" =~ ^(true|1|yes|on)$ ]]; then
+    ensure_plugin_runtime_config
+    sanitize_plugin_runtime_config
+    ensure_pinchbench_exec_approvals
+    validate_openclaw_runtime_config
+    assert_method_runtime_config
+    ensure_openclaw_gateway_running
+    sanitize_plugin_runtime_config
+    ensure_pinchbench_exec_approvals
+    validate_openclaw_runtime_config
+    assert_method_runtime_config
+  else
+    # Baseline runs must not install or assert the TokenPilot runtime. The
+    # benchmark process removes any stale TokenPilot entry while activating
+    # only the task-required mock plugins.
+    PINCHBENCH_SKIP_METHOD_RUNTIME_PATCH=true \
+      ensure_pinchbench_exec_approvals
+    PINCHBENCH_SKIP_METHOD_RUNTIME_PATCH=true \
+      ensure_openclaw_gateway_running
+  fi
 
   "${cmd[@]}"
 }
