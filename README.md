@@ -73,4 +73,4 @@ Benchmark-specific data requirements and commands are documented in:
 
 ## Provenance
 
-This repository is a clean snapshot of the experiment surface formerly stored under `LightMem2/experiments`. The source runtime repository and commit are recorded in `MIGRATION.md`; the new repository intentionally does not carry the LightMem2 commit history.
+This repository is a clean snapshot of the experiment surface formerly stored under `LightMem2/experiments`. The new repository intentionally does not carry the LightMem2 commit history.

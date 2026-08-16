@@ -29,7 +29,7 @@ LightMem2/TokenPilot/experiment-data/claw-eval/tasks/
 After download, restore the full task tree under:
 
 ```text
-experiments/tokenpilot/claw-eval/dataset/tasks/
+benchmarks/claw-eval/dataset/tasks/
 ```
 
 Uploading the whole `tasks/` directory is recommended in practice. It avoids

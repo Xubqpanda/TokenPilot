@@ -31,8 +31,8 @@ from dotenv import load_dotenv
 import yaml
 
 # Load environment variables from .env file
-# scripts/ is at: TokenPilot-Bench/experiments/dataset/pinchbench/scripts/
-# .env is at: TokenPilot-Bench/.env
+# scripts/ is at: TokenPilot/benchmarks/pinchbench/dataset/scripts/
+# .env is at: TokenPilot/.env
 # So we need to go up 5 levels
 ENV_FILE = Path(__file__).parent.parent.parent.parent.parent / ".env"
 if ENV_FILE.exists():
