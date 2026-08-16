@@ -114,6 +114,7 @@ def test_method_runtime_replaces_stale_tokenpilot_load_paths(tmp_path: Path) -> 
             "bash",
             "-c",
             "source benchmarks/pinchbench/scripts/common.sh >/dev/null; "
+            "prepare_tokenpilot_install_config; "
             "ensure_plugin_runtime_config >/dev/null",
         ],
         check=True,

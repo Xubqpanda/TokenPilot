@@ -85,7 +85,38 @@ load_benchmark_profile() {
   load_tokenpilot_profile "pinchbench" "${method}" "${mode}"
 }
 
+prepare_tokenpilot_install_config() {
+  local config_path="${OPENCLAW_CONFIG_PATH:-${HOME}/.openclaw/openclaw.json}"
+  local plugin_load_path="${TOKENPILOT_PLUGIN_LOAD_PATH:-${HOME}/.openclaw/extensions/tokenpilot}"
+  if [[ ! -f "${config_path}" ]]; then
+    return 0
+  fi
+  python3 - "${config_path}" "${plugin_load_path}" <<'PREPARE_TOKENPILOT_INSTALL_PY'
+import json
+import sys
+from pathlib import Path
+
+config_path = Path(sys.argv[1])
+plugin_load_path = sys.argv[2]
+config = json.loads(config_path.read_text(encoding="utf-8"))
+plugins = config.setdefault("plugins", {})
+load = plugins.get("load")
+if isinstance(load, dict):
+    paths = load.get("paths")
+    if isinstance(paths, list):
+        retained = [
+            path
+            for path in paths
+            if isinstance(path, str) and "/extensions/tokenpilot" not in path.lower()
+        ]
+        retained.append(plugin_load_path)
+        load["paths"] = list(dict.fromkeys(retained))
+config_path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+PREPARE_TOKENPILOT_INSTALL_PY
+}
+
 install_tokenpilot_runtime() {
+  prepare_tokenpilot_install_config
   bash "${TOKENPILOT_EXPERIMENT_ROOT}/runtime/install-tokenpilot.sh"
 }
 
