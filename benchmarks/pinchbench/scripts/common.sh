@@ -984,7 +984,7 @@ reapply_method_runtime_config_if_needed() {
   if [[ "${skip_method_runtime_patch}" =~ ^(true|1|yes)$ ]]; then
     return 0
   fi
-  if [[ -z "${TOKENPILOT_BASE_URL:-}" && -z "${LIGHTMEM2_BASE_URL:-}" ]]; then
+  if [[ -z "${TOKENPILOT_BASE_URL:-}" && -z "${LIGHTRSI_BASE_URL:-}" ]]; then
     return 0
   fi
   ensure_plugin_runtime_config
@@ -995,7 +995,7 @@ reapply_method_runtime_config_if_needed() {
 
 assert_method_runtime_config() {
   local config_path="${OPENCLAW_CONFIG_PATH:-${HOME}/.openclaw/openclaw.json}"
-  python3 - "${config_path}" "${TOKENPILOT_BASE_URL:-${LIGHTMEM2_BASE_URL:-}}" "${TOKENPILOT_PROXY_PORT:-17668}" "${TOKENPILOT_API_KEY:-${LIGHTMEM2_API_KEY:-}}" <<'ASSERT_METHOD_CFG_PY'
+  python3 - "${config_path}" "${TOKENPILOT_BASE_URL:-${LIGHTRSI_BASE_URL:-}}" "${TOKENPILOT_PROXY_PORT:-17668}" "${TOKENPILOT_API_KEY:-${LIGHTRSI_API_KEY:-}}" <<'ASSERT_METHOD_CFG_PY'
 import json
 import os
 import sys
@@ -1316,7 +1316,7 @@ ensure_openclaw_gateway_running() {
   if [[ -n "${TOKENPILOT_UPSTREAM_DNS_OVERRIDE:-}" ]]; then
     gateway_node_options="${gateway_node_options} --require ${SCRIPT_DIR}/upstream-dns-override.cjs"
   fi
-  if [[ "${runtime_upstream_provider}" == "tokenpilot" || "${runtime_upstream_provider}" == "lightmem2" ]]; then
+  if [[ "${runtime_upstream_provider}" == "tokenpilot" || "${runtime_upstream_provider}" == "lightrsi" ]]; then
     runtime_upstream_provider=""
   fi
   if [[ -z "${gateway_port}" ]]; then
@@ -1347,10 +1347,10 @@ PY
       XDG_CONFIG_HOME="${XDG_CONFIG_HOME}" \
       TOKENPILOT_BASE_URL="${TOKENPILOT_BASE_URL:-}" \
       TOKENPILOT_API_KEY="${TOKENPILOT_API_KEY:-}" \
-      LIGHTMEM2_BASE_URL="${LIGHTMEM2_BASE_URL:-${TOKENPILOT_BASE_URL:-}}" \
-      LIGHTMEM2_API_KEY="${LIGHTMEM2_API_KEY:-${TOKENPILOT_API_KEY:-}}" \
+      LIGHTRSI_BASE_URL="${LIGHTRSI_BASE_URL:-${TOKENPILOT_BASE_URL:-}}" \
+      LIGHTRSI_API_KEY="${LIGHTRSI_API_KEY:-${TOKENPILOT_API_KEY:-}}" \
       TOKENPILOT_UPSTREAM_PROVIDER="${runtime_upstream_provider}" \
-      LIGHTMEM2_UPSTREAM_PROVIDER="${LIGHTMEM2_UPSTREAM_PROVIDER:-${runtime_upstream_provider}}" \
+      LIGHTRSI_UPSTREAM_PROVIDER="${LIGHTRSI_UPSTREAM_PROVIDER:-${runtime_upstream_provider}}" \
       TOKENPILOT_UPSTREAM_DNS_OVERRIDE="${TOKENPILOT_UPSTREAM_DNS_OVERRIDE:-}" \
       NODE_OPTIONS="${gateway_node_options# }" \
       GOOGLE_WORKSPACE_CLI_CONFIG_DIR="${GOOGLE_WORKSPACE_CLI_CONFIG_DIR:-}" \
@@ -1393,10 +1393,10 @@ PY
       XDG_CONFIG_HOME="${XDG_CONFIG_HOME}" \
       TOKENPILOT_BASE_URL="${TOKENPILOT_BASE_URL:-}" \
       TOKENPILOT_API_KEY="${TOKENPILOT_API_KEY:-}" \
-      LIGHTMEM2_BASE_URL="${LIGHTMEM2_BASE_URL:-${TOKENPILOT_BASE_URL:-}}" \
-      LIGHTMEM2_API_KEY="${LIGHTMEM2_API_KEY:-${TOKENPILOT_API_KEY:-}}" \
+      LIGHTRSI_BASE_URL="${LIGHTRSI_BASE_URL:-${TOKENPILOT_BASE_URL:-}}" \
+      LIGHTRSI_API_KEY="${LIGHTRSI_API_KEY:-${TOKENPILOT_API_KEY:-}}" \
       TOKENPILOT_UPSTREAM_PROVIDER="${runtime_upstream_provider}" \
-      LIGHTMEM2_UPSTREAM_PROVIDER="${LIGHTMEM2_UPSTREAM_PROVIDER:-${runtime_upstream_provider}}" \
+      LIGHTRSI_UPSTREAM_PROVIDER="${LIGHTRSI_UPSTREAM_PROVIDER:-${runtime_upstream_provider}}" \
       TOKENPILOT_UPSTREAM_DNS_OVERRIDE="${TOKENPILOT_UPSTREAM_DNS_OVERRIDE:-}" \
       NODE_OPTIONS="${gateway_node_options# }" \
       GOOGLE_WORKSPACE_CLI_CONFIG_DIR="${GOOGLE_WORKSPACE_CLI_CONFIG_DIR:-}" \

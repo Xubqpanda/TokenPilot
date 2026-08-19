@@ -2,7 +2,7 @@
 
 This directory contains the OpenClaw execution adapter for the TokenPilot runtime path on the `claw-eval` benchmark.
 
-The harness invokes the local LightMem2 release installer through `TOKENPILOT_RUNTIME_ROOT`, while OpenClaw loads the installed runtime copy from `~/.openclaw/extensions/tokenpilot`.
+The harness invokes the local LightRSI release installer through `TOKENPILOT_RUNTIME_ROOT`, while OpenClaw loads the installed runtime copy from `~/.openclaw/extensions/tokenpilot`.
 
 The current layout is designed to be mostly self-contained inside this repo:
 
@@ -43,7 +43,7 @@ Google Drive root:
 Recommended Drive layout for this benchmark:
 
 ```text
-LightMem2/
+LightRSI-Experiment/
 └── TokenPilot/
     ├── experiment-data/
     │   └── claw-eval/
@@ -84,7 +84,7 @@ Minimal isolated baseline smoke:
 
 ```bash
 cd /path/to/TokenPilot
-export TOKENPILOT_RUNTIME_ROOT=/path/to/LightMem2
+export TOKENPILOT_RUNTIME_ROOT=/path/to/LightRSI
 bash benchmarks/claw-eval/scripts/run_baseline.sh \
   --scope suite \
   --suite T001zh_email_triage \
@@ -96,7 +96,7 @@ Run all `general` tasks in isolated baseline mode:
 
 ```bash
 cd /path/to/TokenPilot
-export TOKENPILOT_RUNTIME_ROOT=/path/to/LightMem2
+export TOKENPILOT_RUNTIME_ROOT=/path/to/LightRSI
 bash benchmarks/claw-eval/scripts/run_baseline.sh \
   --scope general \
   --session-mode isolated \
@@ -109,40 +109,40 @@ Minimal isolated method smoke:
 
 ```bash
 cd /path/to/TokenPilot
-export TOKENPILOT_RUNTIME_ROOT=/path/to/LightMem2
+export TOKENPILOT_RUNTIME_ROOT=/path/to/LightRSI
 bash benchmarks/claw-eval/scripts/run_method.sh \
   --scope suite \
   --suite T001zh_email_triage \
   --session-mode isolated \
   --profile reduction \
-  --model lightmem2/gpt-5.4-mini
+  --model lightrsi/gpt-5.4-mini
 ```
 
 Run all `general` categories in continuous method mode:
 
 ```bash
 cd /path/to/TokenPilot
-export TOKENPILOT_RUNTIME_ROOT=/path/to/LightMem2
+export TOKENPILOT_RUNTIME_ROOT=/path/to/LightRSI
 bash benchmarks/claw-eval/scripts/run_method.sh \
   --scope general \
   --session-mode continuous \
   --profile plugin \
   --by-category \
-  --model lightmem2/gpt-5.4-mini
+  --model lightrsi/gpt-5.4-mini
 ```
 
 If your primary OpenClaw config is read-only or you want run-local isolation, add `--tmp-openclaw`:
 
 ```bash
 cd /path/to/TokenPilot
-export TOKENPILOT_RUNTIME_ROOT=/path/to/LightMem2
+export TOKENPILOT_RUNTIME_ROOT=/path/to/LightRSI
 bash benchmarks/claw-eval/scripts/run_method.sh \
   --scope general \
   --session-mode continuous \
   --profile plugin \
   --by-category \
   --tmp-openclaw \
-  --model lightmem2/gpt-5.4-mini
+  --model lightrsi/gpt-5.4-mini
 ```
 
 ## Current state

@@ -2,9 +2,9 @@
 
 This directory contains the PinchBench experiment harness for the TokenPilot runtime path.
 
-This subtree keeps the public PinchBench benchmark surface for the current TokenPilot-based LightMem2 method path and its matching single-agent baseline.
+This subtree keeps the public PinchBench benchmark surface for the current TokenPilot-based LightRSI method path and its matching single-agent baseline.
 
-The harness consumes a local LightMem2 checkout through `TOKENPILOT_RUNTIME_ROOT`. The runtime copy remains `~/.openclaw/extensions/tokenpilot` for OpenClaw compatibility.
+The harness consumes a local LightRSI checkout through `TOKENPILOT_RUNTIME_ROOT`. The runtime copy remains `~/.openclaw/extensions/tokenpilot` for OpenClaw compatibility.
 
 ## Current Contents
 
@@ -36,7 +36,7 @@ Google Drive root:
 Recommended Drive layout for this benchmark:
 
 ```text
-LightMem2/
+LightRSI-Experiment/
 └── TokenPilot/
     ├── experiment-data/
     │   └── pinchbench/
@@ -73,7 +73,7 @@ Minimal isolated baseline run:
 
 ```bash
 cd /path/to/TokenPilot
-export TOKENPILOT_RUNTIME_ROOT=/path/to/LightMem2
+export TOKENPILOT_RUNTIME_ROOT=/path/to/LightRSI
 bash benchmarks/pinchbench/scripts/run_baseline.sh \
   --suite automated-only \
   --session-mode isolated \
@@ -86,22 +86,22 @@ Minimal isolated method run:
 
 ```bash
 cd /path/to/TokenPilot
-export TOKENPILOT_RUNTIME_ROOT=/path/to/LightMem2
+export TOKENPILOT_RUNTIME_ROOT=/path/to/LightRSI
 bash benchmarks/pinchbench/scripts/run_method.sh \
   --suite automated-only \
   --session-mode isolated \
-  --model lightmem2/gpt-5.4-mini
+  --model lightrsi/gpt-5.4-mini
 ```
 
 Continuous method run:
 
 ```bash
 cd /path/to/TokenPilot
-export TOKENPILOT_RUNTIME_ROOT=/path/to/LightMem2
+export TOKENPILOT_RUNTIME_ROOT=/path/to/LightRSI
 bash benchmarks/pinchbench/scripts/run_method.sh \
   --suite automated-only \
   --session-mode continuous \
-  --model lightmem2/gpt-5.4-mini
+  --model lightrsi/gpt-5.4-mini
 ```
 
 ## Auxiliary runners
@@ -116,5 +116,5 @@ The following scripts remain useful, but they are not the primary public API:
 ## Notes
 
 - Baseline output is written under `save/baseline/<mode>/`; TokenPilot output is written under `save/tokenpilot/<mode>/`.
-- The method examples use `tokenpilot/<model>` because the benchmark runs through the local LightMem2 TokenPilot provider path.
+- The method examples use `tokenpilot/<model>` when the benchmark is routed through the TokenPilot provider path; `lightrsi/<model>` is the canonical platform provider prefix.
 - If you need broader batch orchestration, use the auxiliary `scripts/run_experiment_matrix.sh` wrapper after the main baseline and method runners work on your machine.

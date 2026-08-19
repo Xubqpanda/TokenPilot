@@ -21,7 +21,7 @@ Google Drive root:
 Recommended Drive path:
 
 ```text
-LightMem2/TokenPilot/experiment-data/claw-eval/tasks/
+LightRSI-Experiment/TokenPilot/experiment-data/claw-eval/tasks/
 ```
 
 ## Expected restore layout
