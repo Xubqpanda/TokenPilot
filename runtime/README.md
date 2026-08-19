@@ -1,9 +1,9 @@
 # Development Runtime
 
-TokenPilot experiments currently consume a local LightMem2 checkout.
+TokenPilot experiments currently consume a local LightRSI checkout.
 
 ```bash
-export TOKENPILOT_RUNTIME_ROOT=/path/to/LightMem2
+export TOKENPILOT_RUNTIME_ROOT=/path/to/LightRSI
 bash runtime/install-tokenpilot.sh
 ```
 

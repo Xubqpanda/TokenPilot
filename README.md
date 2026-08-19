@@ -2,7 +2,7 @@
 
 Benchmark tasks, runners, and analysis for TokenPilot, a cache-efficient context management system for long-running LLM agents.
 
-This repository contains experiment code only. The runtime and plugin source remain in [LightMem2](https://github.com/zjunlp/LightMem2).
+This repository contains experiment code only. The runtime and plugin source remain in [LightRSI](https://github.com/zjunlp/LightRSI).
 
 ## Layout
 
@@ -13,7 +13,7 @@ benchmarks/
 profiles/
 ├── pinchbench/
 └── claw-eval/        # baseline/TokenPilot x isolated/continuous defaults
-runtime/              # local LightMem2 development-runtime bridge
+runtime/              # local LightRSI development-runtime bridge
 ```
 
 Each benchmark has the same two method families and two session modes:
@@ -30,13 +30,13 @@ Each benchmark has the same two method families and two session modes:
 
 ## Development Setup
 
-The current development workflow uses a local LightMem2 checkout rather than an npm package. Set the runtime explicitly:
+The current development workflow uses a local LightRSI checkout rather than an npm package. Set the runtime explicitly:
 
 ```bash
-export TOKENPILOT_RUNTIME_ROOT=/path/to/LightMem2
+export TOKENPILOT_RUNTIME_ROOT=/path/to/LightRSI
 ```
 
-The runtime bridge installs the plugin with the checked-out LightMem2 release installer and records the selected runtime path in the command output. The experiment repository never copies or vendors the LightMem2 plugin source.
+The runtime bridge installs the plugin with the checked-out LightRSI release installer and records the selected runtime path in the command output. The experiment repository never copies or vendors the LightRSI plugin source.
 
 Required model configuration is supplied through environment variables or a local, ignored `.env` file. Use the templates under `profiles/` as the starting point; never commit API keys.
 
@@ -73,4 +73,4 @@ Benchmark-specific data requirements and commands are documented in:
 
 ## Provenance
 
-This repository is a clean snapshot of the experiment surface formerly stored under `LightMem2/experiments`. The new repository intentionally does not carry the LightMem2 commit history.
+This repository is a clean snapshot of the experiment surface formerly stored under `LightRSI/experiments`. The new repository intentionally does not carry the LightRSI commit history.

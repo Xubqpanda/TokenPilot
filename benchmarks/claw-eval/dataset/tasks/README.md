@@ -17,7 +17,7 @@ Large task-local fixture payloads are stored outside Git:
 Recommended Drive path:
 
 ```text
-LightMem2/TokenPilot/experiment-data/claw-eval/tasks/
+LightRSI-Experiment/TokenPilot/experiment-data/claw-eval/tasks/
 ```
 
 ## Expected restore layout

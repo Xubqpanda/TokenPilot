@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 if [[ "${1:-}" == "--runtime" ]]; then
-  export TOKENPILOT_RUNTIME_ROOT="${2:?--runtime requires a LightMem2 checkout}"
+  export TOKENPILOT_RUNTIME_ROOT="${2:?--runtime requires a LightRSI checkout}"
 fi
 
 printf '[smoke] shell syntax\n'
