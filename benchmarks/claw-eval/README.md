@@ -36,6 +36,10 @@ Required environment pieces:
 
 Large Claw-Eval assets are stored outside Git.
 
+Download the external data bundle here:
+
+- <https://drive.google.com/drive/folders/1UvKMp4QwdLg2Ge4Me83tYAQ8FKs_P2zZ>
+
 Recommended layout for this benchmark:
 
 ```text

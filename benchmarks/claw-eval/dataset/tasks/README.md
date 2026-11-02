@@ -12,6 +12,10 @@ Large task-local fixture payloads are stored outside Git:
 - task-local JSON fixture bundles
 - generated `output.html` reference files
 
+Download the external data bundle here:
+
+- <https://drive.google.com/drive/folders/1UvKMp4QwdLg2Ge4Me83tYAQ8FKs_P2zZ>
+
 ## Expected restore layout
 
 After download, restore the full task tree under:
