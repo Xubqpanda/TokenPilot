@@ -12,14 +12,6 @@ Large task-local fixture payloads are stored outside Git:
 - task-local JSON fixture bundles
 - generated `output.html` reference files
 
-## Layout
-
-Recommended path:
-
-```text
-LightRSI-Experiment/TokenPilot/experiment-data/claw-eval/tasks/
-```
-
 ## Expected restore layout
 
 After download, restore the full task tree under:

@@ -41,12 +41,10 @@ Recommended layout for this benchmark:
 ```text
 LightRSI-Experiment/
 └── TokenPilot/
-    ├── experiment-data/
-    │   └── claw-eval/
-    │       ├── general/
-    │       └── tasks/
-    └── experiment-results/
+    └── experiment-data/
         └── claw-eval/
+            ├── general/
+            └── tasks/
 ```
 
 Local mount points in this repository:

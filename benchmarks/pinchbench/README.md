@@ -25,22 +25,18 @@ The harness consumes a local LightRSI checkout through `TOKENPILOT_RUNTIME_ROOT`
   - generated output, grouped by `baseline/tokenpilot` and
     `isolated/continuous`; this directory is ignored
 
-## External data and result storage
+## External data storage
 
-Large PinchBench assets and produced result bundles are stored outside Git.
+Large PinchBench assets are stored outside Git.
 
 Recommended layout for this benchmark:
 
 ```text
 LightRSI-Experiment/
 └── TokenPilot/
-    ├── experiment-data/
-    │   └── pinchbench/
-    │       └── assets/
-    └── experiment-results/
+    └── experiment-data/
         └── pinchbench/
-            ├── isolated/
-            └── continuous/
+            └── assets/
 ```
 
 Local mount point for the input asset bundle:
@@ -50,8 +46,7 @@ Local mount point for the input asset bundle:
 Before running a fresh machine:
 
 1. copy `assets/` into `dataset/assets/`
-3. run the official baseline or method command
-4. upload large result folders/logs to `experiment-results/pinchbench/`
+2. run the official baseline or method command
 
 ## Official runners
 
