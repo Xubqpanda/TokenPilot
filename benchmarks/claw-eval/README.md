@@ -36,7 +36,7 @@ Required environment pieces:
 
 Large Claw-Eval assets are stored outside Git.
 
-Recommended Drive layout for this benchmark:
+Recommended layout for this benchmark:
 
 ```text
 LightRSI-Experiment/
@@ -60,10 +60,8 @@ See:
 
 When you prepare a fresh machine:
 
-1. download `general/` from Drive
-2. copy its contents into `dataset/general/`
-3. download `tasks/` from Drive
-4. copy it back under `dataset/tasks/`
+1. copy `general/` into `dataset/general/`
+2. copy `tasks/` under `dataset/tasks/`
 
 ## Official runners
 
@@ -160,7 +158,7 @@ What is still operationally sensitive:
 - provider stability / request timeouts
 - duplicate plugin ids from previously installed local extensions
 - plugin continuous experiments with the current TokenPilot component reduction/eviction/estimator enabled
-- large fixture synchronization between local working copies and the shared Drive mirror
+- large fixture synchronization between local working copies and the shared external mirror
 
 ## Known pitfalls
 

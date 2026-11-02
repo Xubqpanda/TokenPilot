@@ -29,7 +29,7 @@ The harness consumes a local LightRSI checkout through `TOKENPILOT_RUNTIME_ROOT`
 
 Large PinchBench assets and produced result bundles are stored outside Git.
 
-Recommended Drive layout for this benchmark:
+Recommended layout for this benchmark:
 
 ```text
 LightRSI-Experiment/
@@ -49,8 +49,7 @@ Local mount point for the input asset bundle:
 
 Before running a fresh machine:
 
-1. download `assets/` from Drive
-2. copy the files into `dataset/assets/`
+1. copy `assets/` into `dataset/assets/`
 3. run the official baseline or method command
 4. upload large result folders/logs to `experiment-results/pinchbench/`
 
